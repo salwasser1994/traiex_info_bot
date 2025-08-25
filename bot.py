@@ -6,8 +6,8 @@ from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 # --- Токены ---
-API_TOKEN = os.getenv("API_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+API_TOKEN = os.getenv("API_TOKEN")              # Telegram Bot
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")    # OpenAI GPT-4
 openai.api_key = OPENAI_API_KEY
 
 bot = Bot(token=API_TOKEN)
@@ -72,10 +72,10 @@ async def handle_message(message: types.Message):
     elif text in ["❓ Задать вопрос", "❓ Ask a question"]:
         await message.answer("✍ Напишите ваш вопрос, и я отвечу с помощью AI!", reply_markup=menu)
     else:
-        # --- AI ответ через OpenAI GPT-4 ---
+        # --- AI ответ через OpenAI GPT-4 (новый API) ---
         try:
             await message.answer("🤖 Думаю...", reply_markup=menu)
-            response = openai.ChatCompletion.create(
+            response = openai.chat.completions.create(
                 model="gpt-4",
                 messages=[
                     {"role": "system", "content": "Ты помощник по бирже Traiex."},
@@ -84,7 +84,7 @@ async def handle_message(message: types.Message):
                 temperature=0.7,
                 max_tokens=250
             )
-            answer = response['choices'][0]['message']['content'].strip()
+            answer = response.choices[0].message.content.strip()
             await message.answer(answer, reply_markup=menu)
         except Exception as e:
             await message.answer(f"❌ Ошибка AI: {e}", reply_markup=menu)
