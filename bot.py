@@ -6,8 +6,8 @@ from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 # --- Токены ---
-API_TOKEN = os.getenv("API_TOKEN")              # Telegram Bot
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")    # OpenAI GPT-4
+API_TOKEN = os.getenv("API_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 
 bot = Bot(token=API_TOKEN)
@@ -16,16 +16,16 @@ dp = Dispatcher()
 # --- Главное меню ---
 main_menu_ru = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton("📊 Курсы"), KeyboardButton("📰 Новости")],
-        [KeyboardButton("ℹ️ О бирже"), KeyboardButton("❓ Задать вопрос")],
+        [KeyboardButton(text="📊 Курсы"), KeyboardButton(text="📰 Новости")],
+        [KeyboardButton(text="ℹ️ О бирже"), KeyboardButton(text="❓ Задать вопрос")]
     ],
     resize_keyboard=True
 )
 
 main_menu_en = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton("📊 Rates"), KeyboardButton("📰 News")],
-        [KeyboardButton("ℹ️ About Exchange"), KeyboardButton("❓ Ask a question")],
+        [KeyboardButton(text="📊 Rates"), KeyboardButton(text="📰 News")],
+        [KeyboardButton(text="ℹ️ About Exchange"), KeyboardButton(text="❓ Ask a question")]
     ],
     resize_keyboard=True
 )
@@ -37,14 +37,12 @@ user_language = {}
 @dp.message(Command("start"))
 async def start(message: types.Message):
     lang_menu = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton("🇷🇺 Русский"), KeyboardButton("🇬🇧 English")]
-        ],
+        keyboard=[[KeyboardButton(text="🇷🇺 Русский"), KeyboardButton(text="🇬🇧 English")]],
         resize_keyboard=True
     )
     await message.answer("🌐 Выберите язык / Choose your language:", reply_markup=lang_menu)
 
-# --- Выбор языка ---
+# --- Выбор языка и обработка кнопок ---
 @dp.message()
 async def handle_message(message: types.Message):
     user_id = message.from_user.id
@@ -66,17 +64,17 @@ async def handle_message(message: types.Message):
 
     # Кнопки меню
     if text in ["📊 Курсы", "📊 Rates"]:
-        await message.answer("📈 BTC: 65,000 $ | ETH: 3,500 $")
+        await message.answer("📈 BTC: 65,000 $ | ETH: 3,500 $", reply_markup=menu)
     elif text in ["📰 Новости", "📰 News"]:
-        await message.answer("📰 Последние новости Traiex...")
+        await message.answer("📰 Последние новости Traiex...", reply_markup=menu)
     elif text in ["ℹ️ О бирже", "ℹ️ About Exchange"]:
-        await message.answer("💡 Traiex — современная криптобиржа")
+        await message.answer("💡 Traiex — современная криптобиржа", reply_markup=menu)
     elif text in ["❓ Задать вопрос", "❓ Ask a question"]:
         await message.answer("✍ Напишите ваш вопрос, и я отвечу с помощью AI!", reply_markup=menu)
     else:
         # --- AI ответ через OpenAI GPT-4 ---
         try:
-            await message.answer("🤖 Думаю...")
+            await message.answer("🤖 Думаю...", reply_markup=menu)
             response = openai.ChatCompletion.create(
                 model="gpt-4",
                 messages=[
