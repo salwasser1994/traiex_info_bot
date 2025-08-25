@@ -10,11 +10,12 @@ API_TOKEN = os.getenv("API_TOKEN")
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# --- Главное меню (aiogram 3.x) ---
+# --- Главное меню с новыми кнопками ---
 main_menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="📊 Курсы"), KeyboardButton(text="📰 Новости")],
-        [KeyboardButton(text="❓ FAQ"), KeyboardButton(text="📞 Поддержка")]
+        [KeyboardButton(text="❓ FAQ"), KeyboardButton(text="📞 Поддержка")],
+        [KeyboardButton(text="💡 Советы"), KeyboardButton(text="📅 События")]
     ],
     resize_keyboard=True
 )
@@ -49,6 +50,18 @@ async def faq(message: Message):
 async def support(message: Message):
     await message.answer(
         "📞 Связаться с поддержкой: support@traiex.com\nTelegram: @TraiexSupport"
+    )
+
+@dp.message(F.text == "💡 Советы")
+async def tips(message: Message):
+    await message.answer(
+        "💡 Советы трейдерам:\n- Следи за курсами\n- Не рискуй больше, чем можешь позволить\n- Используй стоп-лоссы"
+    )
+
+@dp.message(F.text == "📅 События")
+async def events(message: Message):
+    await message.answer(
+        "📅 Ближайшие события Traiex:\n- Вебинар по трейдингу: 28 августа\n- Конкурс трейдеров: 1 сентября"
     )
 
 @dp.message()
