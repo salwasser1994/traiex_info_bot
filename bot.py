@@ -1,77 +1,63 @@
 import os
-import asyncio
 from aiogram import Bot, Dispatcher, types
+from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-from aiogram.filters import CommandStart
+import asyncio
 
-API_TOKEN = os.getenv("API_TOKEN")  # токен подтягивается из переменной окружения
+API_TOKEN = os.getenv("API_TOKEN")  # Токен из Render Environment Variables
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# === Кнопки выбора языка ===
-language_keyboard = ReplyKeyboardMarkup(
+# --- Главное меню ---
+main_menu = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="🇷🇺 Русский"), KeyboardButton(text="🇬🇧 English")]
-    ],
-    resize_keyboard=True
-)
-
-# === Главное меню на русском ===
-main_menu_ru = ReplyKeyboardMarkup(
-    keyboard=[
+        [KeyboardButton(text="❓ Задать вопрос")],
         [KeyboardButton(text="📊 Курсы"), KeyboardButton(text="📰 Новости")],
-        [KeyboardButton(text="ℹ️ О бирже"), KeyboardButton(text="🌐 Website")],
+        [KeyboardButton(text="ℹ️ О бирже")]
     ],
     resize_keyboard=True
 )
 
-# === Главное меню на английском ===
-main_menu_en = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="📊 Rates"), KeyboardButton(text="📰 News")],
-        [KeyboardButton(text="ℹ️ About Exchange"), KeyboardButton(text="🌐 Website")],
-    ],
-    resize_keyboard=True
-)
+# --- Список ответов на частые вопросы ---
+faq = {
+    "что такое traiex": "💡 Traiex — это криптовалютная биржа для торговли цифровыми активами.",
+    "как зарегистрироваться": "📝 Регистрация доступна на официальном сайте Traiex. Нужно указать почту и придумать пароль.",
+    "какие комиссии": "💰 Комиссия за торговые операции составляет 0.1%. Пополнение и вывод зависят от способа.",
+    "поддержка": "📞 Связаться с поддержкой можно через email support@traiex.com."
+}
 
 
-# === Хранилище выбора языка пользователей ===
-user_language = {}
-
-
-# === Хэндлер /start ===
-@dp.message(CommandStart())
-async def start_handler(message: types.Message):
+# --- Команда /start ---
+@dp.message(Command("start"))
+async def start(message: types.Message):
     await message.answer(
-        "👋 Welcome! / Добро пожаловать!\n\n"
-        "Пожалуйста, выберите язык / Please select your language:",
-        reply_markup=language_keyboard
+        "👋 Привет! Я бот Traiex.\n\n"
+        "Выберите действие из меню или задайте свой вопрос.",
+        reply_markup=main_menu
     )
 
 
-# === Хэндлер выбора языка ===
+# --- Обработка вопросов ---
 @dp.message()
-async def handle_message(message: types.Message):
-    user_id = message.from_user.id
+async def handle_question(message: types.Message):
+    text = message.text.lower().strip()
 
-    if message.text == "🇷🇺 Русский":
-        user_language[user_id] = "ru"
-        await message.answer("✅ Язык установлен: Русский", reply_markup=main_menu_ru)
-
-    elif message.text == "🇬🇧 English":
-        user_language[user_id] = "en"
-        await message.answer("✅ Language set: English", reply_markup=main_menu_en)
-
+    if text in faq:
+        await message.answer(faq[text])
+    elif text == "❓ задать вопрос":
+        await message.answer("✍ Напишите ваш вопрос, и я постараюсь ответить.")
+    elif text == "📊 курсы":
+        await message.answer("📈 Курс BTC: 65,000$, ETH: 3,200$ (пример).")
+    elif text == "📰 новости":
+        await message.answer("📰 Сегодня BTC вырос на 5%, а ETH — на 3%.")
+    elif text == "ℹ️ о бирже":
+        await message.answer("💡 Traiex — современная криптобиржа с безопасной торговлей.")
     else:
-        lang = user_language.get(user_id, "ru")
-        if lang == "ru":
-            await message.answer("Выберите опцию из меню 👇", reply_markup=main_menu_ru)
-        else:
-            await message.answer("Choose an option from the menu 👇", reply_markup=main_menu_en)
+        await message.answer("🤔 Я пока не знаю ответа на этот вопрос. Попробуйте задать по-другому.")
 
 
-# === Запуск бота ===
+# --- Запуск ---
 async def main():
     await dp.start_polling(bot)
 
