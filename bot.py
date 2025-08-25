@@ -1,7 +1,7 @@
 import os
 import asyncio
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command, Text
+from aiogram import Bot, Dispatcher, types, F
+from aiogram.filters import Command
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
 API_TOKEN = os.getenv("API_TOKEN")  # Токен от BotFather
