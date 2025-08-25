@@ -47,7 +47,9 @@ async def handle_vote(callback: CallbackQuery):
     selected_option = questions[current_q]["options"][index]
 
     await callback.answer()  # убираем всплывающее окно
-    await callback.message.delete()  # удаляем сообщение с вопросом и кнопками
+
+    # меняем текст вопроса на "Вы выбрали..."
+    await callback.message.edit_text(f"Вы выбрали: {selected_option}")
 
     if selected_option == "Мой вариант ответа":
         # Ожидаем текст от пользователя
