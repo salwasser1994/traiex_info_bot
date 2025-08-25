@@ -17,7 +17,7 @@ questions = [
     },
     {
         "question": "Согласны ли вы с такой картиной жизни?",
-        "options": ["А: Не согласен", "Б: Согласен", "В: Свой ответ"]
+        "options": ["Не согласен", "Согласен", "Свой ответ"]
     }
 ]
 
@@ -44,7 +44,9 @@ async def handle_vote(callback: CallbackQuery):
     index = int(callback.data.split("_")[1])
     current_q = user_progress.get(user_id, 0)
     selected_option = questions[current_q]["options"][index]
-    await callback.answer(f"Вы выбрали: {selected_option}", show_alert=True)
+
+    # Подтверждаем выбор, но не показываем всплывающее окошко
+    await callback.answer()  
 
     if current_q == 0:
         if index == 0:  # Да, я всё вижу и понимаю
