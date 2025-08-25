@@ -1,6 +1,6 @@
 import os
 import asyncio
-from aiogram import Bot, Dispatcher, types, F
+from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
 
@@ -46,7 +46,8 @@ async def handle_vote(callback: CallbackQuery):
     current_q = user_progress.get(user_id, 0)
     selected_option = questions[current_q]["options"][index]
 
-    await callback.answer()  # не показываем всплывающее окно
+    await callback.answer()  # убираем всплывающее окно
+    await callback.message.delete()  # удаляем сообщение с вопросом и кнопками
 
     if selected_option == "Мой вариант ответа":
         # Ожидаем текст от пользователя
