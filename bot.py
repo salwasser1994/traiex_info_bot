@@ -1,30 +1,25 @@
 import os
-from aiogram import Bot, Dispatcher
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
-from aiogram import F
 import asyncio
+from aiogram import Bot, Dispatcher
+from aiogram.types import Message, KeyboardButton, ReplyKeyboardMarkup
+from aiogram import F
 
-# --- Проверка токена ---
+# --- Подключение токена через переменную окружения ---
 API_TOKEN = os.getenv("API_TOKEN")
-if not API_TOKEN:
-    raise ValueError(
-        "❌ API_TOKEN не найден! "
-        "Проверьте Environment Variables на Render. "
-        "KEY должно быть 'API_TOKEN', VALUE — токен от BotFather."
-    )
 
-# --- Инициализация бота ---
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
-# --- Главное меню ---
-main_menu = ReplyKeyboardMarkup(resize_keyboard=True)
-main_menu.add(KeyboardButton("📊 Курсы"))
-main_menu.add(KeyboardButton("📰 Новости"))
-main_menu.add(KeyboardButton("❓ FAQ"))
-main_menu.add(KeyboardButton("📞 Поддержка"))
+# --- Главное меню (aiogram 3.x) ---
+main_menu = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="📊 Курсы"), KeyboardButton(text="📰 Новости")],
+        [KeyboardButton(text="❓ FAQ"), KeyboardButton(text="📞 Поддержка")]
+    ],
+    resize_keyboard=True
+)
 
-# --- Обработчики ---
+# --- Обработчики команд ---
 @dp.message(F.text == "/start")
 async def start(message: Message):
     await message.answer(
