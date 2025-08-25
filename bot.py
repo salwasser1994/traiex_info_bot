@@ -1,63 +1,97 @@
 import os
+import asyncio
+import openai
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
-import asyncio
 
-API_TOKEN = os.getenv("API_TOKEN")  # Токен из Render Environment Variables
+# --- Токены ---
+API_TOKEN = os.getenv("API_TOKEN")              # Telegram Bot
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")    # OpenAI GPT-4
+openai.api_key = OPENAI_API_KEY
 
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher()
 
 # --- Главное меню ---
-main_menu = ReplyKeyboardMarkup(
+main_menu_ru = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="❓ Задать вопрос")],
-        [KeyboardButton(text="📊 Курсы"), KeyboardButton(text="📰 Новости")],
-        [KeyboardButton(text="ℹ️ О бирже")]
+        [KeyboardButton("📊 Курсы"), KeyboardButton("📰 Новости")],
+        [KeyboardButton("ℹ️ О бирже"), KeyboardButton("❓ Задать вопрос")],
     ],
     resize_keyboard=True
 )
 
-# --- Список ответов на частые вопросы ---
-faq = {
-    "что такое traiex": "💡 Traiex — это криптовалютная биржа для торговли цифровыми активами.",
-    "как зарегистрироваться": "📝 Регистрация доступна на официальном сайте Traiex. Нужно указать почту и придумать пароль.",
-    "какие комиссии": "💰 Комиссия за торговые операции составляет 0.1%. Пополнение и вывод зависят от способа.",
-    "поддержка": "📞 Связаться с поддержкой можно через email support@traiex.com."
-}
+main_menu_en = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton("📊 Rates"), KeyboardButton("📰 News")],
+        [KeyboardButton("ℹ️ About Exchange"), KeyboardButton("❓ Ask a question")],
+    ],
+    resize_keyboard=True
+)
 
+# --- Язык пользователя ---
+user_language = {}
 
-# --- Команда /start ---
+# --- /start ---
 @dp.message(Command("start"))
 async def start(message: types.Message):
-    await message.answer(
-        "👋 Привет! Я бот Traiex.\n\n"
-        "Выберите действие из меню или задайте свой вопрос.",
-        reply_markup=main_menu
+    lang_menu = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton("🇷🇺 Русский"), KeyboardButton("🇬🇧 English")]
+        ],
+        resize_keyboard=True
     )
+    await message.answer("🌐 Выберите язык / Choose your language:", reply_markup=lang_menu)
 
-
-# --- Обработка вопросов ---
+# --- Выбор языка ---
 @dp.message()
-async def handle_question(message: types.Message):
-    text = message.text.lower().strip()
+async def handle_message(message: types.Message):
+    user_id = message.from_user.id
+    text = message.text
 
-    if text in faq:
-        await message.answer(faq[text])
-    elif text == "❓ задать вопрос":
-        await message.answer("✍ Напишите ваш вопрос, и я постараюсь ответить.")
-    elif text == "📊 курсы":
-        await message.answer("📈 Курс BTC: 65,000$, ETH: 3,200$ (пример).")
-    elif text == "📰 новости":
-        await message.answer("📰 Сегодня BTC вырос на 5%, а ETH — на 3%.")
-    elif text == "ℹ️ о бирже":
-        await message.answer("💡 Traiex — современная криптобиржа с безопасной торговлей.")
+    # Выбор языка
+    if text == "🇷🇺 Русский":
+        user_language[user_id] = "ru"
+        await message.answer("✅ Язык установлен: Русский", reply_markup=main_menu_ru)
+        return
+    elif text == "🇬🇧 English":
+        user_language[user_id] = "en"
+        await message.answer("✅ Language set: English", reply_markup=main_menu_en)
+        return
+
+    # Определяем язык для меню
+    lang = user_language.get(user_id, "ru")
+    menu = main_menu_ru if lang == "ru" else main_menu_en
+
+    # Кнопки меню
+    if text in ["📊 Курсы", "📊 Rates"]:
+        await message.answer("📈 BTC: 65,000 $ | ETH: 3,500 $")
+    elif text in ["📰 Новости", "📰 News"]:
+        await message.answer("📰 Последние новости Traiex...")
+    elif text in ["ℹ️ О бирже", "ℹ️ About Exchange"]:
+        await message.answer("💡 Traiex — современная криптобиржа")
+    elif text in ["❓ Задать вопрос", "❓ Ask a question"]:
+        await message.answer("✍ Напишите ваш вопрос, и я отвечу с помощью AI!", reply_markup=menu)
     else:
-        await message.answer("🤔 Я пока не знаю ответа на этот вопрос. Попробуйте задать по-другому.")
+        # --- AI ответ через OpenAI GPT-4 ---
+        try:
+            await message.answer("🤖 Думаю...")
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "Ты помощник по бирже Traiex."},
+                    {"role": "user", "content": text}
+                ],
+                temperature=0.7,
+                max_tokens=250
+            )
+            answer = response['choices'][0]['message']['content'].strip()
+            await message.answer(answer, reply_markup=menu)
+        except Exception as e:
+            await message.answer(f"❌ Ошибка AI: {e}", reply_markup=menu)
 
-
-# --- Запуск ---
+# --- Запуск бота ---
 async def main():
     await dp.start_polling(bot)
 
