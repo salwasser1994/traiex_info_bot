@@ -1,21 +1,22 @@
 import logging
 import asyncio
 import os
+import random
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import Command
 from aiogram.fsm.storage.memory import MemoryStorage
-import random
 
-# Получаем токен из переменной окружения
-API_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+import aiohttp
+from bs4 import BeautifulSoup
+
+# Токен из переменной окружения API_Token
+API_TOKEN = os.getenv("API_Token")
 if not API_TOKEN:
-    raise ValueError("TELEGRAM_BOT_TOKEN не задан! Установите переменную окружения с токеном.")
+    raise ValueError("API_Token не задан! Установите переменную окружения с токеном.")
 
-# Включаем логирование
 logging.basicConfig(level=logging.INFO)
 
-# Инициализация бота и диспетчера
 bot = Bot(token=API_TOKEN, parse_mode="HTML")
 dp = Dispatcher(storage=MemoryStorage())
 
@@ -24,15 +25,19 @@ button_info = KeyboardButton("📈 Информация о крипте")
 button_tips = KeyboardButton("💡 Инвестиционные советы")
 button_motivation = KeyboardButton("🔥 Мотивация")
 button_faq = KeyboardButton("❓ Задать вопрос")
+button_profit = KeyboardButton("💰 Калькулятор прибыли")
+button_news = KeyboardButton("📰 Новости крипты")
+
 main_menu = ReplyKeyboardMarkup(
     keyboard=[
         [button_info, button_tips],
-        [button_motivation, button_faq]
+        [button_motivation, button_faq],
+        [button_profit, button_news]
     ],
     resize_keyboard=True
 )
 
-# Примеры данных
+# Данные
 crypto_info = {
     "Bitcoin": "Bitcoin — первая криптовалюта, созданная в 2009 году. BTC ограничен 21 млн монет.",
     "Ethereum": "Ethereum — платформа для смарт-контрактов и криптовалюта ETH.",
@@ -59,20 +64,38 @@ faq_answers = {
     "Какая крипта самая надёжная?": "Bitcoin и Ethereum считаются наиболее надёжными и популярными."
 }
 
-# Обработчики команд
+# Для хранения состояний пользователя (калькулятор прибыли)
+user_states = {}
+
+# Команда /start
 @dp.message(Command(commands=["start"]))
 async def cmd_start(message: types.Message):
     await message.answer(
         "Привет! Я твой крипто-бот 🚀\n"
-        "Я помогу тебе узнать о криптовалюте и инвестициях.\n"
+        "Я помогу тебе узнать о криптовалюте, инвестициях и мотивации.\n"
         "Выбирай одну из опций ниже:",
         reply_markup=main_menu
     )
 
-# Обработчик кнопок и сообщений
+# Обработка сообщений и кнопок
 @dp.message()
 async def handle_message(message: types.Message):
+    user_id = message.from_user.id
     text = message.text
+
+    # Проверяем состояние калькулятора прибыли
+    if user_states.get(user_id) == "awaiting_profit_input":
+        try:
+            parts = [float(x.strip()) for x in text.split(",")]
+            if len(parts) != 3:
+                raise ValueError
+            amount, buy_price, current_price = parts
+            profit = (current_price - buy_price) * amount
+            await message.answer(f"💰 Ваша прибыль/убыток: {profit:.2f} у.е.")
+        except ValueError:
+            await message.answer("❌ Неверный формат. Введите три числа через запятую: количество, цена покупки, текущая цена")
+        user_states[user_id] = None
+        return
 
     if text == "📈 Информация о крипте":
         info_text = "\n\n".join([f"<b>{k}</b>: {v}" for k, v in crypto_info.items()])
@@ -89,8 +112,15 @@ async def handle_message(message: types.Message):
     elif text == "❓ Задать вопрос":
         await message.answer("Напиши свой вопрос про крипту, и я постараюсь помочь!")
 
+    elif text == "💰 Калькулятор прибыли":
+        await message.answer("Введите три числа через запятую: количество монет, цена покупки, текущая цена.\nПример: 2, 20000, 25000")
+        user_states[user_id] = "awaiting_profit_input"
+
+    elif text == "📰 Новости крипты":
+        news = await fetch_crypto_news()
+        await message.answer(news, disable_web_page_preview=True)
+
     else:
-        # Проверяем FAQ
         answer = faq_answers.get(text)
         if answer:
             await message.answer(answer)
@@ -101,8 +131,42 @@ async def handle_message(message: types.Message):
                 reply_markup=main_menu
             )
 
+# Функция получения новостей с CoinTelegraph
+async def fetch_crypto_news():
+    url = "https://ru.cointelegraph.com/"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                html = await resp.text()
+                soup = BeautifulSoup(html, "html.parser")
+                articles = soup.find_all("a", class_="post-card-inline__title-link")[:5]
+                if not articles:
+                    return "Новости сейчас недоступны."
+                news_text = "📰 Последние новости крипты:\n\n"
+                for a in articles:
+                    title = a.get_text(strip=True)
+                    link = a["href"]
+                    if not link.startswith("http"):
+                        link = "https://ru.cointelegraph.com" + link
+                    news_text += f"- <a href='{link}'>{title}</a>\n"
+                return news_text
+    except Exception as e:
+        return f"Ошибка при получении новостей: {e}"
+
+# Ежедневная мотивация
+async def daily_motivation():
+    while True:
+        for chat_id in user_states.keys():
+            quote = random.choice(motivation_quotes)
+            try:
+                await bot.send_message(chat_id, f"🔥 Ежедневная мотивация:\n{quote}")
+            except:
+                pass
+        await asyncio.sleep(24 * 60 * 60)  # раз в 24 часа
+
 # Запуск бота
 async def main():
+    asyncio.create_task(daily_motivation())
     try:
         await dp.start_polling(bot)
     finally:

@@ -1,1 +1,1 @@
-aiogram
+pip install aiogram aiohttp beautifulsoup4
