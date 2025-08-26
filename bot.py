@@ -1,12 +1,16 @@
 import logging
 import asyncio
+import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import Command
 from aiogram.fsm.storage.memory import MemoryStorage
 import random
 
-API_TOKEN = "YOUR_BOT_TOKEN_HERE"
+# Получаем токен из переменной окружения
+API_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+if not API_TOKEN:
+    raise ValueError("TELEGRAM_BOT_TOKEN не задан! Установите переменную окружения с токеном.")
 
 # Включаем логирование
 logging.basicConfig(level=logging.INFO)
@@ -65,7 +69,7 @@ async def cmd_start(message: types.Message):
         reply_markup=main_menu
     )
 
-# Обработчик кнопок
+# Обработчик кнопок и сообщений
 @dp.message()
 async def handle_message(message: types.Message):
     text = message.text
