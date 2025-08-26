@@ -17,7 +17,14 @@ if not API_TOKEN:
 
 logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token=API_TOKEN, parse_mode="HTML")
+from aiogram.client.bot import Bot as AiogramBot
+from aiogram.client.bot import DefaultBotProperties
+
+bot = AiogramBot(
+    token=API_TOKEN,
+    default=DefaultBotProperties(parse_mode="HTML")
+)
+
 dp = Dispatcher(storage=MemoryStorage())
 
 # Кнопки меню
