@@ -26,13 +26,13 @@ bot = AiogramBot(
 
 dp = Dispatcher(storage=MemoryStorage())
 
-# Кнопки меню
-button_info = KeyboardButton("📈 Информация о крипте")
-button_tips = KeyboardButton("💡 Инвестиционные советы")
-button_motivation = KeyboardButton("🔥 Мотивация")
-button_faq = KeyboardButton("❓ Задать вопрос")
-button_profit = KeyboardButton("💰 Калькулятор прибыли")
-button_news = KeyboardButton("📰 Новости крипты")
+# Кнопки меню (только именованные аргументы)
+button_info = KeyboardButton(text="📈 Информация о крипте")
+button_tips = KeyboardButton(text="💡 Инвестиционные советы")
+button_motivation = KeyboardButton(text="🔥 Мотивация")
+button_faq = KeyboardButton(text="❓ Задать вопрос")
+button_profit = KeyboardButton(text="💰 Калькулятор прибыли")
+button_news = KeyboardButton(text="📰 Новости крипты")
 
 main_menu = ReplyKeyboardMarkup(
     keyboard=[
