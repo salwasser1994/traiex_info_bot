@@ -2,13 +2,14 @@ import logging
 import asyncio
 import os
 import random
-from aiogram import Bot, Dispatcher, types
+from aiogram import Dispatcher, types
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import Command
 from aiogram.fsm.storage.memory import MemoryStorage
-
 import aiohttp
 from bs4 import BeautifulSoup
+from aiogram.client.bot import Bot as AiogramBot
+from aiogram.client.bot import DefaultBotProperties
 
 # Токен из переменной окружения API_Token
 API_TOKEN = os.getenv("API_Token")
@@ -17,9 +18,7 @@ if not API_TOKEN:
 
 logging.basicConfig(level=logging.INFO)
 
-from aiogram.client.bot import Bot as AiogramBot
-from aiogram.client.bot import DefaultBotProperties
-
+# Инициализация бота с parse_mode через DefaultBotProperties
 bot = AiogramBot(
     token=API_TOKEN,
     default=DefaultBotProperties(parse_mode="HTML")
