@@ -1,95 +1,108 @@
-import os
+import logging
 import asyncio
 from aiogram import Bot, Dispatcher, types
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, CallbackQuery
+from aiogram.fsm.storage.memory import MemoryStorage
+import random
 
-API_TOKEN = os.getenv("API_TOKEN")  # Токен от BotFather
+API_TOKEN = "YOUR_BOT_TOKEN_HERE"
 
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher()
+# Включаем логирование
+logging.basicConfig(level=logging.INFO)
 
-# --- Вопросы и варианты ---
-questions = [
-    {
-        "question": "Считаете ли вы, что понимаете свой мир целиком, как это делают богатые и успешные люди?",
-        "options": ["Да, я всё вижу и понимаю", "Нет, о чём вы говорите?", "Мой вариант ответа"]
-    },
-    {
-        "question": "Согласны ли вы с такой картиной жизни?",
-        "options": ["Не согласен", "Согласен", "Мой вариант ответа"]
-    }
+# Инициализация бота и диспетчера
+bot = Bot(token=API_TOKEN, parse_mode="HTML")
+dp = Dispatcher(storage=MemoryStorage())
+
+# Кнопки меню
+button_info = KeyboardButton("📈 Информация о крипте")
+button_tips = KeyboardButton("💡 Инвестиционные советы")
+button_motivation = KeyboardButton("🔥 Мотивация")
+button_faq = KeyboardButton("❓ Задать вопрос")
+main_menu = ReplyKeyboardMarkup(
+    keyboard=[
+        [button_info, button_tips],
+        [button_motivation, button_faq]
+    ],
+    resize_keyboard=True
+)
+
+# Примеры данных
+crypto_info = {
+    "Bitcoin": "Bitcoin — первая криптовалюта, созданная в 2009 году. BTC ограничен 21 млн монет.",
+    "Ethereum": "Ethereum — платформа для смарт-контрактов и криптовалюта ETH.",
+    "Altcoins": "Altcoins — все криптовалюты, кроме Bitcoin. Например, Litecoin, Cardano, Solana."
+}
+
+investment_tips = [
+    "Не инвестируй больше, чем готов потерять.",
+    "Диверсифицируй портфель, не держи всё в одной монете.",
+    "Изучи проект перед инвестированием: команда, цель, технология.",
+    "Следи за новостями и трендами рынка криптовалют."
 ]
 
-# --- Пользовательский прогресс ---
-user_progress = {}
-awaiting_text = {}  # словарь для отслеживания, кто пишет свой вариант
+motivation_quotes = [
+    "Кто рискует — тот выигрывает. Начни инвестировать в крипту сегодня!",
+    "Лучшее время для инвестиций было вчера, второе лучшее — сейчас.",
+    "Постоянство и знания создают богатство.",
+    "Не бойся маленьких шагов — они приводят к большим результатам."
+]
 
-def create_keyboard(options):
-    return InlineKeyboardMarkup(
-        inline_keyboard=[[InlineKeyboardButton(text=opt, callback_data=f"vote_{i}")] for i, opt in enumerate(options)]
+faq_answers = {
+    "Что такое криптовалюта?": "Криптовалюта — это цифровая валюта, основанная на технологии блокчейн.",
+    "Как начать инвестировать?": "Для начала выбери надёжную биржу, создай кошелёк и инвестируй небольшие суммы.",
+    "Какая крипта самая надёжная?": "Bitcoin и Ethereum считаются наиболее надёжными и популярными."
+}
+
+# Обработчики команд
+@dp.message(Command(commands=["start"]))
+async def cmd_start(message: types.Message):
+    await message.answer(
+        "Привет! Я твой крипто-бот 🚀\n"
+        "Я помогу тебе узнать о криптовалюте и инвестициях.\n"
+        "Выбирай одну из опций ниже:",
+        reply_markup=main_menu
     )
 
-# --- /start ---
-@dp.message(Command("start"))
-async def start(message: types.Message):
-    user_progress[message.from_user.id] = 0  # первый вопрос
-    q_data = questions[0]
-    await message.answer("Привет! Давай проведем опрос:")
-    await message.answer(q_data["question"], reply_markup=create_keyboard(q_data["options"]))
-
-# --- Обработка голосов ---
-@dp.callback_query()
-async def handle_vote(callback: CallbackQuery):
-    user_id = callback.from_user.id
-    index = int(callback.data.split("_")[1])
-    current_q = user_progress.get(user_id, 0)
-    selected_option = questions[current_q]["options"][index]
-
-    await callback.answer()  # убираем всплывающее окно
-
-    # меняем текст вопроса на "Вы выбрали..."
-    await callback.message.edit_text(f"Вы выбрали: {selected_option}")
-
-    if selected_option == "Мой вариант ответа":
-        # Ожидаем текст от пользователя
-        awaiting_text[user_id] = current_q
-        await callback.message.answer("Напишите свой вариант ответа:")
-        return
-
-    if current_q == 0:
-        if index == 0:  # Да, я всё вижу и понимаю
-            user_progress[user_id] = 1
-            next_q = questions[1]
-            await callback.message.answer(next_q["question"], reply_markup=create_keyboard(next_q["options"]))
-        else:
-            await callback.message.answer("Спасибо за участие в опросе! ✅")
-            user_progress[user_id] = 0
-    else:
-        await callback.message.answer("Спасибо за участие в опросе! ✅")
-        user_progress[user_id] = 0
-
-# --- Обработка текстовых ответов для "Мой вариант ответа" ---
+# Обработчик кнопок
 @dp.message()
-async def handle_text(message: types.Message):
-    user_id = message.from_user.id
-    if user_id in awaiting_text:
-        # Пользователь прислал свой вариант
-        await message.answer("Хороший ответ! ✅")
-        current_q = awaiting_text.pop(user_id)
-        # Переходим к следующему вопросу
-        next_q_index = current_q + 1
-        if next_q_index < len(questions):
-            user_progress[user_id] = next_q_index
-            next_q = questions[next_q_index]
-            await message.answer(next_q["question"], reply_markup=create_keyboard(next_q["options"]))
-        else:
-            user_progress[user_id] = 0
-            await message.answer("Спасибо за участие в опросе! ✅")
+async def handle_message(message: types.Message):
+    text = message.text
 
-# --- Запуск бота ---
+    if text == "📈 Информация о крипте":
+        info_text = "\n\n".join([f"<b>{k}</b>: {v}" for k, v in crypto_info.items()])
+        await message.answer(info_text)
+
+    elif text == "💡 Инвестиционные советы":
+        tip = random.choice(investment_tips)
+        await message.answer(f"💡 Совет:\n{tip}")
+
+    elif text == "🔥 Мотивация":
+        quote = random.choice(motivation_quotes)
+        await message.answer(f"🔥 Мотивация:\n{quote}")
+
+    elif text == "❓ Задать вопрос":
+        await message.answer("Напиши свой вопрос про крипту, и я постараюсь помочь!")
+
+    else:
+        # Проверяем FAQ
+        answer = faq_answers.get(text)
+        if answer:
+            await message.answer(answer)
+        else:
+            await message.answer(
+                "Извини, я пока не знаю ответа на этот вопрос 😅\n"
+                "Попробуй задать другой вопрос или выбери опцию из меню.",
+                reply_markup=main_menu
+            )
+
+# Запуск бота
 async def main():
-    await dp.start_polling(bot)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
