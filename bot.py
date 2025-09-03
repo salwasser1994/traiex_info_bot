@@ -9,7 +9,7 @@ TOKEN = os.getenv("API_Token")
 if not TOKEN:
     raise ValueError("API_Token не найден в переменных окружения!")
 
-# Создаем бота
+# Создаем бота с parse_mode HTML
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
@@ -25,16 +25,15 @@ def main_menu():
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-# Отправка меню сразу, без приветственного текста
+# Отправка меню при любом сообщении
 @dp.message()
 async def send_menu(message: types.Message):
-    # ОБЯЗАТЕЛЬНЫЙ текст
-    await message.answer(text="Меню:", reply_markup=main_menu())
+    await message.answer(text="Меню:", reply_markup=main_menu())  # ОБЯЗАТЕЛЬНЫЙ text
 
 # Пока кнопки без действия
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
-    await callback.answer()  # просто подтверждение нажатия
+    await callback.answer()  # подтверждение нажатия
 
 async def main():
     await dp.start_polling(bot)
