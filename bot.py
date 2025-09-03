@@ -29,7 +29,7 @@ def main_menu():
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer("Привет! Выбирай нужный пункт меню:", reply_markup=main_menu())
+    await message.answer("Приветик! Выбирай нужный пункт меню:", reply_markup=main_menu())
 
 # Обработка нажатий кнопок
 @dp.callback_query()
