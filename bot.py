@@ -3,13 +3,14 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 
 # Берём токен из Environment Variables Render
 TOKEN = os.getenv("API_Token")
 if not TOKEN:
     raise ValueError("API_Token не найден в переменных окружения!")
 
+# Создаем бота с default properties
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
@@ -28,30 +29,23 @@ def main_menu():
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer("Приветики! Выбирай нужный пункт меню:", reply_markup=main_menu())
-
-# Команда /upload — отправка видео себе и вывод file_id
-@dp.message(Command("upload"))
-async def upload_video(message: types.Message):
-    video_path = "video1.mp4"
-    if not os.path.exists(video_path):
-        await message.answer("❌ Видео не найдено на сервере.")
-        return
-    sent_video = await message.answer_video(video=video_path, caption="Тестовое видео")
-    await message.answer(f"✅ File ID этого видео: {sent_video.video.file_id}")
+    await message.answer("Приве! Выбирай нужный пункт меню:", reply_markup=main_menu())
 
 # Обработка нажатий кнопок
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
     if callback.data == "overview":
-        # После получения file_id замените эту строку на ваш file_id
-        file_id = "ВАШ_FILE_ID_ЗДЕСЬ"
-        await callback.message.answer_video(
-            video=file_id,
-            caption="Вот видео с общей картиной 📊"
-        )
+        video_path = "video1.mp4"  # локальный файл с видео в той же папке
+        if os.path.exists(video_path):
+            video = FSInputFile(video_path)
+            await callback.message.answer_video(
+                video=video,
+                caption="Вот видео с общей картиной 📊"
+            )
+        else:
+            await callback.message.answer("Видео не найдено на сервере.")
     else:
-        await callback.answer()  # подтверждение нажатия для остальных кнопок
+        await callback.answer()  # подтверждение нажатия для других кнопок
 
 # Запуск бота
 async def main():
