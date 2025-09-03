@@ -3,7 +3,7 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile
 
 # Берём токен из Environment Variables Render
 TOKEN = os.getenv("API_Token")
@@ -29,22 +29,25 @@ def main_menu():
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    # Убираем /start, просто показываем меню
     await message.answer("Привет! Выбирай нужный пункт меню:", reply_markup=main_menu())
 
 # Обработка нажатий кнопок
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
     if callback.data == "overview":
-        # Отправка видео из локального файла
-        await callback.message.answer_video(
-            video="video1.mp4",  # путь к видео в той же папке
-            caption="Вот видео с общей картиной 📊"
-        )
+        video_path = "video1.mp4"  # файл должен быть в той же папке, что и bot.py
+        if os.path.exists(video_path):
+            video = InputFile(video_path)
+            await callback.message.answer_video(
+                video=video,
+                caption="Вот видео с общей картиной 📊"
+            )
+        else:
+            await callback.message.answer("Видео не найдено на сервере.")
     else:
-        await callback.answer()  # подтверждение нажатия для других кнопок
+        await callback.answer()  # подтверждение нажатия для остальных кнопок
 
-# Старт бота
+# Запуск бота
 async def main():
     await dp.start_polling(bot)
 
