@@ -28,9 +28,9 @@ def main_menu():
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer("Приветули! Выбирай нужный пункт меню:", reply_markup=main_menu())
+    await message.answer("Приветики! Выбирай нужный пункт меню:", reply_markup=main_menu())
 
-# --- Временный обработчик для загрузки видео и получения file_id ---
+# Команда /upload — отправка видео себе и вывод file_id
 @dp.message(Command("upload"))
 async def upload_video(message: types.Message):
     video_path = "video1.mp4"
@@ -38,14 +38,14 @@ async def upload_video(message: types.Message):
         await message.answer("❌ Видео не найдено на сервере.")
         return
     sent_video = await message.answer_video(video=video_path, caption="Тестовое видео")
-    await message.answer(f"File ID этого видео: {sent_video.video.file_id}")
+    await message.answer(f"✅ File ID этого видео: {sent_video.video.file_id}")
 
 # Обработка нажатий кнопок
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
     if callback.data == "overview":
-        # Здесь вставь свой file_id после загрузки видео через /upload
-        file_id = "AQADBAAD...твоя_file_id..."
+        # После получения file_id замените эту строку на ваш file_id
+        file_id = "ВАШ_FILE_ID_ЗДЕСЬ"
         await callback.message.answer_video(
             video=file_id,
             caption="Вот видео с общей картиной 📊"
