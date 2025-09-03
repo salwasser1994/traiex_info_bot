@@ -10,7 +10,6 @@ TOKEN = os.getenv("API_Token")
 if not TOKEN:
     raise ValueError("API_Token не найден в переменных окружения!")
 
-# Создаем бота с default properties
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
@@ -29,28 +28,27 @@ def main_menu():
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer("Приветик! Выбирай нужный пункт меню:", reply_markup=main_menu())
+    await message.answer("Приветули! Выбирай нужный пункт меню:", reply_markup=main_menu())
 
 # Обработка нажатий кнопок
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
     if callback.data == "overview":
-        video_path = "video1.mp4"  # локальный файл на сервере
-        if os.path.exists(video_path):
-            # Просто передаём путь к файлу
-            await callback.message.answer_video(
-                video=video_path,
-                caption="Вот видео с общей картиной 📊",
-                supports_streaming=True  # сразу можно стримить
-            )
-        else:
-            await callback.message.answer("Видео не найдено на сервере.")
+        video_path = "video1.mp4"  # путь к видео на сервере
+        if not os.path.exists(video_path):
+            await callback.message.answer("❌ Видео не найдено на сервере.")
+            return
+        
+        # Отправка видео напрямую через путь к файлу
+        await callback.message.answer_video(
+            video=video_path,
+            caption="Вот видео с общей картиной 📊"
+        )
     else:
-        await callback.answer("Кнопка нажата!")  # подтверждение для других кнопок
+        await callback.answer()  # подтверждение нажатия для остальных кнопок
 
 # Запуск бота
 async def main():
-    print("Бот запущен!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
