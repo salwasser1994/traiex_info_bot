@@ -30,18 +30,24 @@ def main_menu():
 async def cmd_start(message: types.Message):
     await message.answer("Приветули! Выбирай нужный пункт меню:", reply_markup=main_menu())
 
+# --- Временный обработчик для загрузки видео и получения file_id ---
+@dp.message(Command("upload"))
+async def upload_video(message: types.Message):
+    video_path = "video1.mp4"
+    if not os.path.exists(video_path):
+        await message.answer("❌ Видео не найдено на сервере.")
+        return
+    sent_video = await message.answer_video(video=video_path, caption="Тестовое видео")
+    await message.answer(f"File ID этого видео: {sent_video.video.file_id}")
+
 # Обработка нажатий кнопок
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
     if callback.data == "overview":
-        video_path = "video1.mp4"  # путь к видео на сервере
-        if not os.path.exists(video_path):
-            await callback.message.answer("❌ Видео не найдено на сервере.")
-            return
-        
-        # Отправка видео напрямую через путь к файлу
+        # Здесь вставь свой file_id после загрузки видео через /upload
+        file_id = "AQADBAAD...твоя_file_id..."
         await callback.message.answer_video(
-            video=video_path,
+            video=file_id,
             caption="Вот видео с общей картиной 📊"
         )
     else:
