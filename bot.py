@@ -31,11 +31,23 @@ def main_menu():
 async def cmd_start(message: types.Message):
     await message.answer("Приве! Выбирай нужный пункт меню:", reply_markup=main_menu())
 
+# Команда /upload (один раз, чтобы получить file_id)
+@dp.message(Command("upload"))
+async def upload_video(message: types.Message):
+    video_path = "video1.mp4"
+    if not os.path.exists(video_path):
+        await message.answer("❌ Видео не найдено на сервере.")
+        return
+    
+    video = FSInputFile(video_path)
+    sent_video = await message.answer_video(video=video, caption="Тестовое видео")
+    await message.answer(f"✅ File ID этого видео: <code>{sent_video.video.file_id}</code>")
+
 # Обработка нажатий кнопок
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
     if callback.data == "overview":
-        video_path = "video1.mp4"  # локальный файл с видео в той же папке
+        video_path = "video1.mp4"
         if os.path.exists(video_path):
             video = FSInputFile(video_path)
             await callback.message.answer_video(
@@ -45,7 +57,7 @@ async def callbacks(callback: types.CallbackQuery):
         else:
             await callback.message.answer("Видео не найдено на сервере.")
     else:
-        await callback.answer()  # подтверждение нажатия для других кнопок
+        await callback.answer()
 
 # Запуск бота
 async def main():
