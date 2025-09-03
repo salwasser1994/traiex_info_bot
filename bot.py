@@ -2,15 +2,14 @@ import os
 import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
-from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Берём токен из Environment Variables Render
+# Токен из Environment Variables Render
 TOKEN = os.getenv("API_Token")
 if not TOKEN:
     raise ValueError("API_Token не найден в переменных окружения!")
 
-# Создаем бота с default properties
+# Создаем бота
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
@@ -26,15 +25,15 @@ def main_menu():
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-# Команда /start
-@dp.message(Command("start"))
-async def cmd_start(message: types.Message):
-    await message.answer("Привет! Выбирай нужный пункт меню:", reply_markup=main_menu())
+# Отправка меню сразу, без приветственного текста
+@dp.message()
+async def send_menu(message: types.Message):
+    await message.answer(reply_markup=main_menu())
 
 # Пока кнопки без действия
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
-    await callback.answer()  # подтверждение нажатия
+    await callback.answer()  # просто подтверждение нажатия
 
 async def main():
     await dp.start_polling(bot)
