@@ -3,7 +3,7 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # Берём токен из Environment Variables Render
 TOKEN = os.getenv("API_Token")
@@ -35,20 +35,22 @@ async def cmd_start(message: types.Message):
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
     if callback.data == "overview":
-        video_path = "video1.mp4"  # локальный файл с видео в той же папке
+        video_path = "video1.mp4"  # локальный файл на сервере
         if os.path.exists(video_path):
-            video = FSInputFile(video_path)
+            # Просто передаём путь к файлу
             await callback.message.answer_video(
-                video=video,
-                caption="Вот видео с общей картиной 📊"
+                video=video_path,
+                caption="Вот видео с общей картиной 📊",
+                supports_streaming=True  # сразу можно стримить
             )
         else:
             await callback.message.answer("Видео не найдено на сервере.")
     else:
-        await callback.answer()  # подтверждение нажатия для других кнопок
+        await callback.answer("Кнопка нажата!")  # подтверждение для других кнопок
 
 # Запуск бота
 async def main():
+    print("Бот запущен!")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
