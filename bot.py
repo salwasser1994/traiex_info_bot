@@ -25,10 +25,11 @@ def main_menu():
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-# Отправка меню без приветствия
+# Отправка меню сразу, без приветственного текста
 @dp.message()
 async def send_menu(message: types.Message):
-    await message.answer(text=" ", reply_markup=main_menu())  # ОБЯЗАТЕЛЬНЫЙ текст
+    # ОБЯЗАТЕЛЬНЫЙ текст
+    await message.answer(text="Меню:", reply_markup=main_menu())
 
 # Пока кнопки без действия
 @dp.callback_query()
