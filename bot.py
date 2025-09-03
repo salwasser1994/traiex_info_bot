@@ -29,19 +29,20 @@ def main_menu():
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer("Выбирай нужный пункт меню:", reply_markup=main_menu())
+    await message.answer("Привет! Выбирай нужный пункт меню:", reply_markup=main_menu())
 
 # Обработка нажатий кнопок
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
     if callback.data == "overview":
-        video = InputFile("video1.mp4")  # локальный файл с видео
+        # Отправка видео, файл должен быть в репозитории рядом с bot.py
+        video = InputFile(path_or_bytes="video1.mp4")
         await callback.message.answer_video(
             video=video,
             caption="Вот видео с общей картиной 📊"
         )
     else:
-        await callback.answer()  # подтверждение нажатия для остальных кнопок
+        await callback.answer()  # подтверждение нажатия для других кнопок
 
 async def main():
     await dp.start_polling(bot)
