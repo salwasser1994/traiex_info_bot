@@ -8,7 +8,6 @@ from aiogram.types import (
     ReplyKeyboardMarkup, KeyboardButton
 )
 
-# Токен из переменных окружения
 TOKEN = os.getenv("API_Token")
 if not TOKEN:
     raise ValueError("API_Token не найден в переменных окружения!")
@@ -24,15 +23,13 @@ def show_menu_button():
         ]
     )
 
-# Главное меню (ReplyKeyboard, снизу)
+# Главное меню (ReplyKeyboard, снизу, две кнопки в ряд)
 def reply_main_menu():
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📝 Пройти тест")],
-            [KeyboardButton(text="💰 Готов инвестировать")],
-            [KeyboardButton(text="📄 Просмотр договора оферты")],
-            [KeyboardButton(text="🤖 Что такое бот на ИИ")],
-            [KeyboardButton(text="❓ Дополнительные вопросы")]
+            [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
+            [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
+            [KeyboardButton(text="🤖 Что такое бот на ИИ"), KeyboardButton(text="❓ Дополнительные вопросы")]
         ],
         resize_keyboard=True
     )
