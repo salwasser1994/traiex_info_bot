@@ -55,7 +55,6 @@ async def cmd_start(message: types.Message):
 
     # Отправляем кнопку "Показать меню"
     await message.answer(
-        "Нажмите кнопку, чтобы открыть главное меню:",
         reply_markup=show_menu_button()
     )
 
