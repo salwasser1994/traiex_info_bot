@@ -3,66 +3,63 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
 
+# Берём токен из Environment Variables Render
 TOKEN = os.getenv("API_Token")
 if not TOKEN:
-    raise ValueError("API_Token не найден в переменных окружении!")
+    raise ValueError("API_Token не найден в переменных окружения!")
 
+# Создаем бота с default properties
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
-# Кнопка "Показать меню"
-def show_menu_button():
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="📊 Показать меню", callback_data="show_menu")]
-        ]
-    )
-
-# Главное меню внизу (по две кнопки в ряд)
-def reply_main_menu():
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📝 Пройти тест"), KeyboardButton(text="💰 Готов инвестировать")],
-            [KeyboardButton(text="📄 Просмотр договора оферты"), KeyboardButton(text="🤖 Что такое бот на ИИ")],
-            [KeyboardButton(text="❓ Дополнительные вопросы"), KeyboardButton(text="📊 Общая картина")]
-        ],
-        resize_keyboard=True
-    )
+# Главное меню
+def main_menu():
+    keyboard = [
+        [InlineKeyboardButton(text="📊 Общая картина", callback_data="overview")],
+        [InlineKeyboardButton(text="📝 Пройти тест", callback_data="test")],
+        [InlineKeyboardButton(text="💰 Готов инвестировать", callback_data="invest")],
+        [InlineKeyboardButton(text="📄 Просмотр договора оферты", callback_data="agreement")],
+        [InlineKeyboardButton(text="🤖 Что такое бот на ИИ", callback_data="ai_bot")],
+        [InlineKeyboardButton(text="❓ Дополнительные вопросы", callback_data="faq")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    text = (
-        "Старт\n"
-        "Итак давай начнем с осмотра всей картины целиком и полностью.\n"
-        "Для чего нам нужно увидеть всю картину, да потому что только так можно увидеть все минусы и плюсы "
-        "и откоректировать их так как мы этого хотим а не так как нам диктуют 'обстоятельства'.\n"
-        "Так как разговор про финансы общая картинка такова, что у нас есть только один источник дохода (найм), "
-        "то при не сложном подсчёте мы понимаем, что если мы хотим иметь квартиру, машину, образование детям, "
-        "отдых раз в год, нам нужно около ... суммы денег.\n"
-        "Если взять калькулятор и подсчитать, выходит нужно около ... лет жизни при средней заработной плате, "
-        "чтобы получить желаемое.\n"
-        "Очень плачевная ситуация.\n"
-        "Но если добавить к сохраненной части денег ещё такой инструмент как бот на ИИ, "
-        "то нам хватает (подсчет нарисовать) такое-то количество времени.\n"
-        "Теперь выбор за вами.\n"
-        "Хотите ли использовать новые инструменты: искусственный интеллект + ежедневный сложный процент, "
-        "или останетесь с одним источником дохода?"
-    )
-    await message.answer(text=text, reply_markup=show_menu_button())
+    await message.answer("Приве! Выбирай нужный пункт меню:", reply_markup=main_menu())
 
-# Обработка кнопки "Показать меню"
+# Команда /upload (один раз, чтобы получить file_id)
+@dp.message(Command("upload"))
+async def upload_video(message: types.Message):
+    video_path = "video1.mp4"
+    if not os.path.exists(video_path):
+        await message.answer("❌ Видео не найдено на сервере.")
+        return
+    
+    video = FSInputFile(video_path)
+    sent_video = await message.answer_video(video=video, caption="Тестовое видео")
+    await message.answer(f"✅ File ID этого видео: <code>{sent_video.video.file_id}</code>")
+
+# Обработка нажатий кнопок
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
-    if callback.data == "show_menu":
-        await callback.message.answer(
-            text="Меню открыто:",
-            reply_markup=reply_main_menu()
-        )
+    if callback.data == "overview":
+        video_path = "video1.mp4"
+        if os.path.exists(video_path):
+            video = FSInputFile(video_path)
+            await callback.message.answer_video(
+                video=video,
+                caption="Вот видео с общей картиной 📊"
+            )
+        else:
+            await callback.message.answer("Видео не найдено на сервере.")
+    else:
         await callback.answer()
 
+# Запуск бота
 async def main():
     await dp.start_polling(bot)
 
