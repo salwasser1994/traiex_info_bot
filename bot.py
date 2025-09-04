@@ -3,14 +3,13 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # Берём токен из Environment Variables Render
 TOKEN = os.getenv("API_Token")
 if not TOKEN:
     raise ValueError("API_Token не найден в переменных окружения!")
 
-# Создаем бота с default properties
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
@@ -25,31 +24,31 @@ def main_menu():
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-# Reply-кнопка для вызова главного меню
-reply_menu = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton(text="📊 Главное меню")]
-    ],
-    resize_keyboard=True
-)
+# File ID видео
+WELCOME_VIDEO_ID = "BAACAgQAAxkDAAIC12i4SwjQT7gKv_ccxLe2dV5GAYreAAIqIQACIJ7IUZCFvYLU5H0KNgQ"
 
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer(
-        "Привет! Выбирай нужный пункт меню:",
-        reply_markup=reply_menu  # сразу показываем reply-клавиатуру
+    # Отправляем видео с кнопкой "Показать меню"
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📊 Показать меню", callback_data="show_menu")]
+        ]
     )
-
-# Обработка reply-кнопки
-@dp.message(lambda message: message.text == "📊 Главное меню")
-async def show_main_menu(message: types.Message):
-    await message.answer("Вот главное меню:", reply_markup=main_menu())
+    await message.answer_video(
+        video=WELCOME_VIDEO_ID,
+        caption="🎥 Смотри видео до конца, а затем жми кнопку ниже:",
+        reply_markup=keyboard
+    )
 
 # Обработка нажатий inline-кнопок
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
-    await callback.answer()  # подтверждение нажатия
+    if callback.data == "show_menu":
+        await callback.message.answer("📊 Вот главное меню:", reply_markup=main_menu())
+    else:
+        await callback.answer()
 
 async def main():
     await dp.start_polling(bot)
