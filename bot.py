@@ -3,7 +3,7 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
 # Берём токен из Environment Variables Render
 TOKEN = os.getenv("API_Token")
@@ -14,10 +14,9 @@ if not TOKEN:
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
-# Главное меню
+# Главное inline-меню
 def main_menu():
     keyboard = [
-        [InlineKeyboardButton(text="📊 Общая картина", callback_data="overview")],
         [InlineKeyboardButton(text="📝 Пройти тест", callback_data="test")],
         [InlineKeyboardButton(text="💰 Готов инвестировать", callback_data="invest")],
         [InlineKeyboardButton(text="📄 Просмотр договора оферты", callback_data="agreement")],
@@ -26,24 +25,32 @@ def main_menu():
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
+# Reply-кнопка для вызова главного меню
+reply_menu = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="📊 Главное меню")]
+    ],
+    resize_keyboard=True
+)
+
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer("111Привет! Выбирай нужный пункт меню:", reply_markup=main_menu())
+    await message.answer(
+        "Привет! Выбирай нужный пункт меню:",
+        reply_markup=reply_menu  # сразу показываем reply-клавиатуру
+    )
 
-# Обработка нажатий кнопок
+# Обработка reply-кнопки
+@dp.message(lambda message: message.text == "📊 Главное меню")
+async def show_main_menu(message: types.Message):
+    await message.answer("Вот главное меню:", reply_markup=main_menu())
+
+# Обработка нажатий inline-кнопок
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
-    if callback.data == "overview":
-        file_id = "BAACAgQAAxkDAAIC12i4SwjQT7gKv_ccxLe2dV5GAYreAAIqIQACIJ7IUZCFvYLU5H0KNgQ"
-        await callback.message.answer_video(
-            video=file_id,
-            caption="Вот видео с общей картиной 📊"
-        )
-    else:
-        await callback.answer()  # подтверждение нажатия для других кнопок
+    await callback.answer()  # подтверждение нажатия
 
-# Запуск бота
 async def main():
     await dp.start_polling(bot)
 
