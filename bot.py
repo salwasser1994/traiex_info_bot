@@ -31,6 +31,16 @@ def inline_back_to_menu():
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
+# Inline-кнопка для инвестирования
+def invest_link():
+    keyboard = [
+        [InlineKeyboardButton(
+            text="💰 Перейти к регистрации",
+            url="https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex"
+        )]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -53,6 +63,10 @@ async def handle_message(message: types.Message):
     if message.text == "📄 Просмотр договора оферты":
         file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
         await message.answer_document(file_id)
+
+    elif message.text == "💰 Готов инвестировать":
+        await message.answer(reply_markup=invest_link())
+
     else:
         pass  # остальные кнопки без реакции
 
