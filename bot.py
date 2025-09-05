@@ -1,7 +1,7 @@
 from aiogram import Bot, Dispatcher, types
 import asyncio
 
-TOKEN = "ВАШ_ТОКЕН_БОТА"
+TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
