@@ -2,6 +2,10 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
+from aiogram.types import (
+    ReplyKeyboardMarkup, KeyboardButton,
+    InlineKeyboardMarkup, InlineKeyboardButton
+)
 
 # Токен бота
 TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
@@ -13,54 +17,78 @@ SUPPORT_CHAT_ID = -1002395205551
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
-# Словарь для отслеживания пользователей, которые пишут в поддержку
+# Хранилище пользователей, которые пишут в поддержку
 support_users = set()
 
-# Главное меню
+# Главное меню (ReplyKeyboard)
 def main_menu():
     keyboard = [
-        [types.KeyboardButton("📊 Общая картина"), types.KeyboardButton("📝 Пройти тест")],
-        [types.KeyboardButton("💰 Готов инвестировать"), types.KeyboardButton("📄 Просмотр договора оферты")],
-        [types.KeyboardButton("✨ Невозможное возможно благодаря рычагам")],
-        [types.KeyboardButton("Дополнительные вопросы❓"), types.KeyboardButton("Написать в поддержку")]
+        [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
+        [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
+        [KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
+        [KeyboardButton(text="Дополнительные вопросы❓"), KeyboardButton(text="Написать в поддержку")]
     ]
-    return types.ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+# Inline-кнопка "В меню"
+def inline_back_to_menu():
+    keyboard = [
+        [InlineKeyboardButton(text="В меню", callback_data="back_to_menu")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer("Добро пожаловать! Выберите действие:", reply_markup=main_menu())
+    file_id = "BAACAgQAAxkDAAIEgGi5kTsunsNKCxSgT62lGkOro6iLAAI8KgACIJ7QUfgrP_Y9_DJKNgQ"
+    await message.answer_video(
+        video=file_id,
+        reply_markup=inline_back_to_menu()
+    )
 
-# Обработка кнопок меню
+# Обработка inline-кнопки "В меню"
+@dp.callback_query()
+async def callbacks(callback: types.CallbackQuery):
+    if callback.data == "back_to_menu":
+        await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
+        await callback.answer()  # закрыть "часики"
+
+# Обработка нажатий меню (ReplyKeyboard)
 @dp.message()
 async def handle_message(message: types.Message):
-    if message.text == "Написать в поддержку":
-        support_users.add(message.from_user.id)
-        await message.answer("Опишите свою проблему")
-    elif message.text == "📄 Просмотр договора оферты":
+    # Если пользователь написал в поддержку
+    if message.from_user.id in support_users:
+        await bot.send_message(
+            SUPPORT_CHAT_ID,
+            f"Сообщение от @{message.from_user.username or message.from_user.full_name}:\n{message.text}"
+        )
+        support_users.remove(message.from_user.id)
+        await message.answer("Ваше сообщение отправлено в поддержку!")
+        return
+
+    # Работа с кнопками
+    if message.text == "📄 Просмотр договора оферты":
         file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
         await message.answer_document(file_id)
+
     elif message.text == "💰 Готов инвестировать":
-        keyboard = types.InlineKeyboardMarkup(
+        keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[
-                types.InlineKeyboardButton(
+                InlineKeyboardButton(
                     text="Открыть инструкцию",
                     url="https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex"
                 )
             ]]
         )
-        await message.answer("Нажмите кнопку ниже:", reply_markup=keyboard)
+        await message.answer("Нажми на кнопку ниже, чтобы открыть инструкцию:", reply_markup=keyboard)
+
+    elif message.text == "Написать в поддержку":
+        support_users.add(message.from_user.id)
+        await message.answer("Опишите свою проблему")
+
     else:
-        # Проверяем, пишет ли пользователь в поддержку
-        if message.from_user.id in support_users:
-            await bot.send_message(
-                SUPPORT_CHAT_ID,
-                f"Сообщение от @{message.from_user.username or message.from_user.full_name}:\n{message.text}"
-            )
-            support_users.remove(message.from_user.id)
-            await message.answer("Ваше сообщение отправлено в поддержку!")
-        else:
-            await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
+        # Остальные кнопки пока без действия
+        await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
 
 # Запуск бота
 async def main():
