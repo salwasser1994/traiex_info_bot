@@ -1,4 +1,3 @@
-import os
 import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
@@ -8,10 +7,8 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton
 )
 
-# Берём токен из Environment Variables Render
-TOKEN = os.getenv("API_Token")
-if not TOKEN:
-    raise ValueError("API_Token не найден в переменных окружения!")
+# Прямо в коде прописываем токен бота
+TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 
 # Создаем бота с default properties
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
