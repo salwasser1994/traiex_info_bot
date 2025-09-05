@@ -3,7 +3,7 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, FSInputFile
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 # Берём токен из Environment Variables Render
 TOKEN = os.getenv("API_Token")
@@ -14,50 +14,39 @@ if not TOKEN:
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
-# Главное меню
+# Главное меню (ReplyKeyboard, 2 кнопки в ряд)
 def main_menu():
     keyboard = [
-        [InlineKeyboardButton(text="📊 Общая картина", callback_data="overview")],
-        [InlineKeyboardButton(text="📝 Пройти тест", callback_data="test")],
-        [InlineKeyboardButton(text="💰 Готов инвестировать", callback_data="invest")],
-        [InlineKeyboardButton(text="📄 Просмотр договора оферты", callback_data="agreement")],
-        [InlineKeyboardButton(text="🤖 Что такое бот на ИИ", callback_data="ai_bot")],
-        [InlineKeyboardButton(text="❓ Дополнительные вопросы", callback_data="faq")]
+        [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
+        [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
+        [KeyboardButton(text="🤖 Что такое бот на ИИ"), KeyboardButton(text="❓ Дополнительные вопросы")]
     ]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+# Кнопка "В меню"
+def back_to_menu():
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="В меню")]],
+        resize_keyboard=True
+    )
 
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer("Приве! Выбирай нужный пункт меню:", reply_markup=main_menu())
+    file_id = "BAACAgQAAxkDAAIEgGi5kTsunsNKCxSgT62lGkOro6iLAAI8KgACIJ7QUfgrP_Y9_DJKNgQ"
+    await message.answer_video(
+        video=file_id,
+        caption="Вот видео с общей картиной 📊",
+        reply_markup=back_to_menu()
+    )
 
-# Команда /upload (один раз, чтобы получить file_id)
-@dp.message(Command("upload"))
-async def upload_video(message: types.Message):
-    video_path = "video1.mp4"
-    if not os.path.exists(video_path):
-        await message.answer("❌ Видео не найдено на сервере.")
-        return
-    
-    video = FSInputFile(video_path)
-    sent_video = await message.answer_video(video=video, caption="Тестовое видео")
-    await message.answer(f"✅ File ID этого видео: <code>{sent_video.video.file_id}</code>")
-
-# Обработка нажатий кнопок
-@dp.callback_query()
-async def callbacks(callback: types.CallbackQuery):
-    if callback.data == "overview":
-        video_path = "video1.mp4"
-        if os.path.exists(video_path):
-            video = FSInputFile(video_path)
-            await callback.message.answer_video(
-                video=video,
-                caption="Вот видео с общей картиной 📊"
-            )
-        else:
-            await callback.message.answer("Видео не найдено на сервере.")
+# Обработка кнопок
+@dp.message()
+async def handle_message(message: types.Message):
+    if message.text == "В меню":
+        await message.answer("Выберите пункт меню:", reply_markup=main_menu())
     else:
-        await callback.answer()
+        await message.answer(f"Вы нажали: {message.text}")
 
 # Запуск бота
 async def main():
