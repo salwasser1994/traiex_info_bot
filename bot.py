@@ -1,10 +1,10 @@
 import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
-from aiogram.filters import Command, Text
+from aiogram.filters import Command
 
-# Токен бота (замени на свой)
-TOKEN = "ВАШ_ТОКЕН_ЗДЕСЬ"
+# Токен бота
+TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 
 # ID группы для поддержки
 SUPPORT_CHAT_ID = -1002395205551
@@ -53,7 +53,10 @@ async def handle_message(message: types.Message):
     else:
         # Проверяем, пишет ли пользователь в поддержку
         if message.from_user.id in support_users:
-            await bot.send_message(SUPPORT_CHAT_ID, f"Сообщение от @{message.from_user.username or message.from_user.full_name}:\n{message.text}")
+            await bot.send_message(
+                SUPPORT_CHAT_ID,
+                f"Сообщение от @{message.from_user.username or message.from_user.full_name}:\n{message.text}"
+            )
             support_users.remove(message.from_user.id)
             await message.answer("Ваше сообщение отправлено в поддержку!")
         else:
