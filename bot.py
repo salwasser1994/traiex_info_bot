@@ -3,7 +3,10 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import (
+    ReplyKeyboardMarkup, KeyboardButton,
+    InlineKeyboardMarkup, InlineKeyboardButton
+)
 
 # Берём токен из Environment Variables Render
 TOKEN = os.getenv("API_Token")
@@ -23,30 +26,38 @@ def main_menu():
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# Кнопка "В меню"
-def back_to_menu():
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="В меню")]],
-        resize_keyboard=True
-    )
+# Inline-кнопка "В меню"
+def inline_back_to_menu():
+    keyboard = [
+        [InlineKeyboardButton(text="В меню", callback_data="back_to_menu")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    file_id = "BAACAgQAAxkDAAIEgGi5kTsunsNKCxSgT62lGkOro6iLAAI8KgACIJ7QUfgrP_Y9_DJKNgQ"
+    file_id = "BAACAgQAAxkDAAIC12i4SwjQT7gKv_ccxLe2dV5GAYreAAIqIQACIJ7IUZCFvYLU5H0KNgQ"
     await message.answer_video(
         video=file_id,
-        caption="Вот видео с общей картиной 📊",
-        reply_markup=back_to_menu()
+        reply_markup=inline_back_to_menu()
     )
 
-# Обработка кнопок
+# Обработка inline-кнопки "сделай свой выбор"
+@dp.callback_query()
+async def callbacks(callback: types.CallbackQuery):
+    if callback.data == "back_to_menu":
+        await callback.message.answer("Выберите пункт меню:", reply_markup=main_menu())
+        await callback.answer()  # закрыть "часики"
+
+# Обработка нажатий меню (ReplyKeyboard)
 @dp.message()
 async def handle_message(message: types.Message):
-    if message.text == "В меню":
-        await message.answer("Выберите пункт меню:", reply_markup=main_menu())
-    else:
+    if message.text in ["📊 Общая картина", "📝 Пройти тест",
+                        "💰 Готов инвестировать", "📄 Просмотр договора оферты",
+                        "🤖 Что такое бот на ИИ", "❓ Дополнительные вопросы"]:
         await message.answer(f"Вы нажали: {message.text}")
+    else:
+        await message.answer("Пожалуйста, используйте меню ниже 👇")
 
 # Запуск бота
 async def main():
