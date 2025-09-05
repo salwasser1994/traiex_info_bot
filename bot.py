@@ -21,8 +21,8 @@ dp = Dispatcher()
 def main_menu():
     keyboard = [
         [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
-        [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
-        [KeyboardButton(text="🤖 Что такое бот на ИИ"), KeyboardButton(text="❓ Дополнительные вопросы")]
+        [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
+        [KeyboardButton(text="📄 Просмотр договора оферты"), KeyboardButton(text="Дополнительные вопросы❓")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
@@ -42,22 +42,17 @@ async def cmd_start(message: types.Message):
         reply_markup=inline_back_to_menu()
     )
 
-# Обработка inline-кнопки "сделай свой выбор"
+# Обработка inline-кнопки "В меню"
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
     if callback.data == "back_to_menu":
         await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
         await callback.answer()  # закрыть "часики"
 
-# Обработка нажатий меню (ReplyKeyboard)
+# Обработка нажатий меню (ReplyKeyboard) — теперь кнопки **без реакции**
 @dp.message()
 async def handle_message(message: types.Message):
-    if message.text in ["📊 Общая картина", "📝 Пройти тест",
-                        "💰 Готов инвестировать", "📄 Просмотр договора оферты",
-                        "🤖 Что такое бот на ИИ", "❓ Дополнительные вопросы"]:
-        await message.answer(f"Вы нажали: {message.text}")
-    else:
-        await message.answer("Пожалуйста, используйте меню ниже 👇")
+    pass  # ничего не делаем, кнопки просто отображаются
 
 # Запуск бота
 async def main():
