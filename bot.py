@@ -19,7 +19,8 @@ dp = Dispatcher()
 
 # Хранилище пользователей, которые пишут в поддержку
 support_users = set()
-# Словарь для соответствия group_message_id -> user_id
+
+# Хранилище сообщений бота в группе для ответа пользователю
 support_messages = {}
 
 # Главное меню (ReplyKeyboard)
@@ -55,12 +56,18 @@ async def callbacks(callback: types.CallbackQuery):
         await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
         await callback.answer()  # закрыть "часики"
 
-# Обработка нажатий меню (ReplyKeyboard)
+# Универсальный обработчик сообщений
 @dp.message()
-async def handle_message(message: types.Message):
-    # Если пользователь написал в поддержку
+async def handle_all_messages(message: types.Message):
+    # 1️⃣ Если сообщение из группы поддержки (ответ на сообщение бота)
+    if message.chat.id == SUPPORT_CHAT_ID:
+        if message.reply_to_message and message.reply_to_message.message_id in support_messages:
+            user_id = support_messages[message.reply_to_message.message_id]
+            await bot.send_message(user_id, f"Ответ поддержки:\n{message.text}")
+        return  # не обрабатываем дальше
+
+    # 2️⃣ Если пользователь пишет в поддержку
     if message.from_user.id in support_users:
-        # Пересылаем сообщение в группу и сохраняем соответствие message_id
         sent = await bot.send_message(
             SUPPORT_CHAT_ID,
             f"Сообщение от @{message.from_user.username or message.from_user.full_name}:\n{message.text}"
@@ -70,7 +77,7 @@ async def handle_message(message: types.Message):
         await message.answer("Ваше сообщение отправлено в поддержку!")
         return
 
-    # Работа с кнопками
+    # 3️⃣ Работа с кнопками
     if message.text == "📄 Просмотр договора оферты":
         file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
         await message.answer_document(file_id)
@@ -91,19 +98,8 @@ async def handle_message(message: types.Message):
         await message.answer("Опишите свою проблему")
 
     else:
+        # Остальные кнопки пока без действия
         await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
-
-# Перехватываем ответы в группе
-@dp.message()
-async def handle_group_reply(message: types.Message):
-    # Игнорируем сообщения не из группы поддержки
-    if message.chat.id != SUPPORT_CHAT_ID:
-        return
-
-    # Если это ответ на сообщение бота
-    if message.reply_to_message and message.reply_to_message.message_id in support_messages:
-        user_id = support_messages[message.reply_to_message.message_id]
-        await bot.send_message(user_id, f"Ответ поддержки:\n{message.text}")
 
 # Запуск бота
 async def main():
