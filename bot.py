@@ -1,28 +1,63 @@
 import os
 import asyncio
 from aiogram import Bot, Dispatcher, types
+from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
+from aiogram.types import (
+    ReplyKeyboardMarkup, KeyboardButton,
+    InlineKeyboardMarkup, InlineKeyboardButton
+)
 
-# Берём токен из Environment Variables
+# Берём токен из Environment Variables Render
 TOKEN = os.getenv("API_Token")
 if not TOKEN:
     raise ValueError("API_Token не найден в переменных окружения!")
 
-bot = Bot(token=TOKEN)
+# Создаем бота с default properties
+bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
-# Команда /start — приветствие
+# Главное меню (ReplyKeyboard)
+def main_menu():
+    keyboard = [
+        [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
+        [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
+        [KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
+        [KeyboardButton(text="Дополнительные вопросы❓")]
+    ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+# Inline-кнопка "В меню"
+def inline_back_to_menu():
+    keyboard = [
+        [InlineKeyboardButton(text="В меню", callback_data="back_to_menu")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
+# Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer("Привет! Пришли любой файл, и я сразу дам его file_id.")
+    file_id = "BAACAgQAAxkDAAIEgGi5kTsunsNKCxSgT62lGkOro6iLAAI8KgACIJ7QUfgrP_Y9_DJKNgQ"
+    await message.answer_video(
+        video=file_id,
+        reply_markup=inline_back_to_menu()
+    )
 
-# Обработка любого файла
+# Обработка inline-кнопки "В меню"
+@dp.callback_query()
+async def callbacks(callback: types.CallbackQuery):
+    if callback.data == "back_to_menu":
+        await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
+        await callback.answer()  # закрыть "часики"
+
+# Обработка нажатий меню (ReplyKeyboard)
 @dp.message()
-async def handle_file(message: types.Message):
-    if message.document:
-        await message.answer(f"Вот file_id твоего файла:\n\n{message.document.file_id}")
+async def handle_message(message: types.Message):
+    if message.text == "📄 Просмотр договора оферты":
+        file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
+        await message.answer_document(file_id)
     else:
-        await message.answer("Отправь любой файл.")
+        pass  # остальные кнопки без реакции
 
 # Запуск бота
 async def main():
