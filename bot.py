@@ -19,6 +19,8 @@ dp = Dispatcher()
 
 # Хранилище пользователей, которые пишут в поддержку
 support_users = set()
+# Словарь для соответствия group_message_id -> user_id
+support_messages = {}
 
 # Главное меню (ReplyKeyboard)
 def main_menu():
@@ -58,10 +60,12 @@ async def callbacks(callback: types.CallbackQuery):
 async def handle_message(message: types.Message):
     # Если пользователь написал в поддержку
     if message.from_user.id in support_users:
-        await bot.send_message(
+        # Пересылаем сообщение в группу и сохраняем соответствие message_id
+        sent = await bot.send_message(
             SUPPORT_CHAT_ID,
             f"Сообщение от @{message.from_user.username or message.from_user.full_name}:\n{message.text}"
         )
+        support_messages[sent.message_id] = message.from_user.id
         support_users.remove(message.from_user.id)
         await message.answer("Ваше сообщение отправлено в поддержку!")
         return
@@ -87,8 +91,19 @@ async def handle_message(message: types.Message):
         await message.answer("Опишите свою проблему")
 
     else:
-        # Остальные кнопки пока без действия
         await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
+
+# Перехватываем ответы в группе
+@dp.message()
+async def handle_group_reply(message: types.Message):
+    # Игнорируем сообщения не из группы поддержки
+    if message.chat.id != SUPPORT_CHAT_ID:
+        return
+
+    # Если это ответ на сообщение бота
+    if message.reply_to_message and message.reply_to_message.message_id in support_messages:
+        user_id = support_messages[message.reply_to_message.message_id]
+        await bot.send_message(user_id, f"Ответ поддержки:\n{message.text}")
 
 # Запуск бота
 async def main():
