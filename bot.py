@@ -17,12 +17,13 @@ if not TOKEN:
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
-# Главное меню (ReplyKeyboard, 2 кнопки в ряд)
+# Главное меню (ReplyKeyboard)
 def main_menu():
     keyboard = [
         [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
-        [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
-        [KeyboardButton(text="📄 Просмотр договора оферты"), KeyboardButton(text="Дополнительные вопросы❓")]
+        [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
+        [KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
+        [KeyboardButton(text="Дополнительные вопросы❓")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
@@ -49,7 +50,7 @@ async def callbacks(callback: types.CallbackQuery):
         await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
         await callback.answer()  # закрыть "часики"
 
-# Обработка нажатий меню (ReplyKeyboard) — теперь кнопки **без реакции**
+# Обработка нажатий меню (ReplyKeyboard) — кнопки без реакции
 @dp.message()
 async def handle_message(message: types.Message):
     pass  # ничего не делаем, кнопки просто отображаются
