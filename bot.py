@@ -36,7 +36,7 @@ def inline_back_to_menu():
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    file_id = "BAACAgQAAxkDAAIC12i4SwjQT7gKv_ccxLe2dV5GAYreAAIqIQACIJ7IUZCFvYLU5H0KNgQ"
+    file_id = "BAACAgQAAxkDAAIEgGi5kTsunsNKCxSgT62lGkOro6iLAAI8KgACIJ7QUfgrP_Y9_DJKNgQ"
     await message.answer_video(
         video=file_id,
         reply_markup=inline_back_to_menu()
@@ -46,7 +46,7 @@ async def cmd_start(message: types.Message):
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
     if callback.data == "back_to_menu":
-        await callback.message.answer("Выберите пункт меню:", reply_markup=main_menu())
+        await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
         await callback.answer()  # закрыть "часики"
 
 # Обработка нажатий меню (ReplyKeyboard)
