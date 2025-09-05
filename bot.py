@@ -20,7 +20,7 @@ def main_menu():
         [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
         [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
         [KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
-        [KeyboardButton(text="Дополнительные вопросы❓")]
+        [KeyboardButton(text="Дополнительные вопросы❓"), KeyboardButton(text="Написать в поддержку")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
