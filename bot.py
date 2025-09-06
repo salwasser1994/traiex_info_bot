@@ -28,7 +28,7 @@ def main_menu():
         [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
         [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
         [KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
-        [KeyboardButton(text="Дополнительные вопросы❓"), KeyboardButton(text="Написать в поддержку")]
+        [KeyboardButton(text="Часто задаваемые вопросы❓"), KeyboardButton(text="Написать в поддержку")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
@@ -82,7 +82,7 @@ async def handle_all_messages(message: types.Message):
         "📊 Общая картина",
         "📝 Пройти тест",
         "✨ Невозможное возможно благодаря рычагам",
-        "Дополнительные вопросы❓"
+        "Часто задаваемые вопросы❓"
     ]
     if message.text in menu_buttons:
         if message.from_user.id in support_users:
