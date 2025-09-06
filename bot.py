@@ -79,7 +79,7 @@ test_questions = [
         "correct": "Понимание ограничений ИИ, постоянный контроль и корректировка стратегии на основе человеческого анализа и опыта."
     },
     {
-        "q": "Можно ли рассматривать ИИ как \"рычаг\" в инвестициях?",
+        "q": "Можно ли рассматривать ИИ как 'рычаг' в инвестициях?",
         "options": [
             "Да, ИИ может значительно усилить возможности инвестора, позволяя ему эффективнее анализировать данные, принимать решения и управлять рисками.",
             "Нет, ИИ - это лишь сложная программа, не имеющая реального влияния на результаты инвестиций."
@@ -93,9 +93,10 @@ user_progress = {}
 # Главное меню (ReplyKeyboard)
 def main_menu():
     keyboard = [
-        [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="💰 Готов инвестировать")],
+        [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
+        [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
         [KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
-        [KeyboardButton(text="📄 Просмотр договора оферты"), KeyboardButton(text="Часто задаваемые вопросы❓")]
+        [KeyboardButton(text="Часто задаваемые вопросы❓")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
@@ -133,7 +134,10 @@ def inline_back_to_menu():
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     file_id = "BAACAgQAAxkDAAIEgGi5kTsunsNKCxSgT62lGkOro6iLAAI8KgACIJ7QUfgrP_Y9_DJKNgQ"
-    await message.answer_video(video=file_id, reply_markup=inline_back_to_menu())
+    await message.answer_video(
+        video=file_id,
+        reply_markup=inline_back_to_menu()
+    )
 
 # Обработка inline-кнопки "В меню"
 @dp.callback_query()
@@ -175,6 +179,7 @@ async def handle_message(message: types.Message):
     elif user_id in user_progress:
         idx = user_progress[user_id]
         q = test_questions[idx]
+
         if message.text == q["correct"]:
             await message.answer("✅ Правильно!")
             idx += 1
@@ -183,4 +188,21 @@ async def handle_message(message: types.Message):
                 await send_test_question(message, idx)
             else:
                 await message.answer("🎉 Тест завершён!", reply_markup=main_menu())
-                del user_progress[user_id
+                del user_progress[user_id]
+
+        elif message.text == "🔙 Назад в меню":
+            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+            del user_progress[user_id]
+        else:
+            # неправильный ответ — молчим
+            pass
+
+    elif message.text == "🔙 Назад в меню":
+        await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+
+    else:
+        await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
+
+# Запуск бота
+async def main():
+    await dp
