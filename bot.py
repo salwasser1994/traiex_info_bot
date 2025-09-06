@@ -6,7 +6,7 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton
 )
 
-TOKEN = "ВАШ_ТОКЕН"
+TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 
 bot = Bot(token=TOKEN, parse_mode="HTML")
 dp = Dispatcher()
