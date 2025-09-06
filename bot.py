@@ -91,15 +91,8 @@ async def handle_message(message: types.Message):
         await message.answer_document(file_id)
 
     elif message.text == "💰 Готов инвестировать":
-        keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[
-                [InlineKeyboardButton(
-                    text="Открыть инструкцию",
-                    url="https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex"
-                )]
-            ]
-        )
-        await message.answer("Нажми на кнопку ниже, чтобы открыть инструкцию:", reply_markup=keyboard)
+        # Прямой текст-ссылка без кнопки
+        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex")
 
     elif message.text == "Часто задаваемые вопросы❓":
         await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
