@@ -2,16 +2,19 @@ import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import (
+    ReplyKeyboardMarkup, KeyboardButton,
+    InlineKeyboardMarkup, InlineKeyboardButton
+)
 
 # Токен бота
-TOKEN = "ТВОЙ_ТОКЕН_ЗДЕСЬ"
+TOKEN = "ВАШ_ТОКЕН_ЗДЕСЬ"
 
 # Создаем бота
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
-# FAQ
+# Вопросы и ответы FAQ
 faq_data = {
     "Безопасно ли пользоваться платформой?":
         "Да, все операции проходят через защищённое соединение, ваши данные и средства надёжно защищены.",
@@ -33,53 +36,53 @@ faq_data = {
         "Мы не обещаем «золотых гор», но гарантируем прозрачность, безопасность и честную работу платформы."
 }
 
-# Тестовые вопросы
+# --- Тестовые вопросы ---
 test_questions = [
     {
         "q": "Что такое Искусственный Интеллект (ИИ) в контексте инвестиций?",
         "options": [
-            "Инструмент, способный анализировать данные",
-            "Автоматический эксперт, который предсказывает будущее"
+            "Инструмент, способный анализировать огромные объемы данных.",
+            "Автоматический эксперт, который гарантированно предсказывает будущее."
         ],
-        "correct": "Инструмент, способный анализировать данные"
+        "correct": "Инструмент, способный анализировать огромные объемы данных."
     },
     {
         "q": "Как ИИ может помочь в анализе рынка?",
         "options": [
-            "Быстро обрабатывать новости, отчёты и данные",
-            "Полностью заменить человека и принимать все решения"
+            "Быстро обрабатывать новости, отчёты и данные, выявляя тренды.",
+            "Полностью заменить человека и принимать все решения."
         ],
-        "correct": "Быстро обрабатывать новости, отчёты и данные"
+        "correct": "Быстро обрабатывать новости, отчёты и данные, выявляя тренды."
     },
     {
         "q": "Какую роль играет ИИ в автоматизации торговли?",
         "options": [
-            "ИИ полностью устраняет человеческий контроль",
-            "ИИ может автоматизировать исполнение стратегий"
+            "ИИ полностью устраняет необходимость в человеческом контроле, автоматически генерируя прибыль.",
+            "ИИ может автоматизировать исполнение торговых стратегий, основанных на заданных параметрах, обеспечивая более быструю и точную торговлю."
         ],
-        "correct": "ИИ может автоматизировать исполнение стратегий"
+        "correct": "ИИ может автоматизировать исполнение торговых стратегий, основанных на заданных параметрах, обеспечивая более быструю и точную торговлю."
     },
     {
-        "q": "Какую из этих задач ИИ выполняет эффективно в инвестициях?",
+        "q": "Какую из этих задач ИИ выполняет эффективно в сфере инвестиций?",
         "options": [
-            "Выявление мошеннических схем и предупреждение о рисках",
-            "Обеспечение полной гарантии прибыли"
+            "Выявление мошеннических схем и предупреждение о потенциальных рисках.",
+            "Обеспечение полной гарантии прибыли, независимо от рыночной ситуации."
         ],
-        "correct": "Выявление мошеннических схем и предупреждение о рисках"
+        "correct": "Выявление мошеннических схем и предупреждение о потенциальных рисках."
     },
     {
         "q": "Что является ключевым фактором при использовании ИИ в инвестициях?",
         "options": [
-            "Полностью довериться алгоритмам",
-            "Понимание ограничений ИИ и контроль стратегии"
+            "Полностью довериться алгоритмам и не вмешиваться в процесс.",
+            "Постоянный контроль и корректировка стратегии на основе человеческого анализа и опыта."
         ],
-        "correct": "Понимание ограничений ИИ и контроль стратегии"
+        "correct": "Постоянный контроль и корректировка стратегии на основе человеческого анализа и опыта."
     }
 ]
 
 user_progress = {}
 
-# Главное меню
+# Главное меню (ReplyKeyboard)
 def main_menu():
     keyboard = [
         [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
@@ -89,76 +92,87 @@ def main_menu():
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
+# Меню FAQ
 def faq_menu():
     keyboard = [[KeyboardButton(text=q)] for q in faq_data.keys()]
-    keyboard.append([KeyboardButton(text="🔙 Назад в меню")])
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# Отправка вопроса с inline-кнопками
+# Меню перед началом теста
+def start_test_menu():
+    keyboard = [
+        [KeyboardButton(text="🚀 Начать тест")]
+    ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+# Отправка вопроса
 async def send_test_question(message: types.Message, idx: int):
     q = test_questions[idx]
-    text = f"{q['q']}\n\n{q['options'][0]}   {q['options'][1]}"
+
+    # 1. Вопрос
+    await message.answer(q["q"])
+
+    # 2. Варианты текста в одном ряду
+    options_text = f"A) {q['options'][0]}    B) {q['options'][1]}"
+    await message.answer(options_text)
+
+    # 3. Inline-кнопки для выбора ответа
     keyboard = InlineKeyboardMarkup(row_width=2)
-    keyboard.add(
-        InlineKeyboardButton(text=q['options'][0], callback_data=f"{idx}_0"),
-        InlineKeyboardButton(text=q['options'][1], callback_data=f"{idx}_1")
-    )
-    await message.answer(text, reply_markup=keyboard)
+    buttons = [
+        InlineKeyboardButton(text="A", callback_data=f"{idx}_0"),
+        InlineKeyboardButton(text="B", callback_data=f"{idx}_1")
+    ]
+    keyboard.add(*buttons)
+    await message.answer("Выберите вариант:", reply_markup=keyboard)
 
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    await message.answer("Привет! Сделай выбор:", reply_markup=main_menu())
+    await message.answer("Привет! Добро пожаловать в тест по ИИ.", reply_markup=start_test_menu())
 
-# Обработка нажатий меню
-@dp.message()
-async def handle_message(message: types.Message):
-    if message.text == "📄 Просмотр договора оферты":
-        await message.answer("Документ оферты")
-    elif message.text == "💰 Готов инвестировать":
-        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex")
-    elif message.text == "Часто задаваемые вопросы❓":
-        await message.answer("Выберите вопрос:", reply_markup=faq_menu())
-    elif message.text in faq_data:
-        await message.answer(faq_data[message.text], reply_markup=faq_menu())
-    elif message.text == "✨ Невозможное возможно благодаря рычагам":
-        await message.answer(
-            "📘 Инструкция:\nВыберите один правильный ответ на каждый вопрос.\nИИ — это инструмент, а не волшебная палочка.",
-            reply_markup=ReplyKeyboardMarkup(
-                keyboard=[[KeyboardButton(text="🚀 Начать тест")]], resize_keyboard=True
-            )
-        )
-    elif message.text == "🚀 Начать тест":
-        user_progress[message.from_user.id] = 0
-        await send_test_question(message, 0)
-    elif message.text == "🔙 Назад в меню":
-        await message.answer("Главное меню:", reply_markup=main_menu())
-    else:
-        await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
-
-# Обработка inline-кнопок для теста
+# Обработка inline-кнопок
 @dp.callback_query()
-async def handle_callback(callback: types.CallbackQuery):
-    user_id = callback.from_user.id
-    if user_id not in user_progress:
-        await callback.answer()
-        return
-    idx = user_progress[user_id]
+async def callbacks(callback: types.CallbackQuery):
+    data = callback.data
+    idx_str, opt_str = data.split("_")
+    idx = int(idx_str)
+    opt = int(opt_str)
     q = test_questions[idx]
-    choice = int(callback.data.split("_")[1])
-    selected = q["options"][choice]
+    selected_option = q["options"][opt]
 
-    if selected == q["correct"]:
+    if selected_option == q["correct"]:
         await callback.message.answer("✅ Правильно!")
         idx += 1
         if idx < len(test_questions):
-            user_progress[user_id] = idx
+            user_progress[callback.from_user.id] = idx
             await send_test_question(callback.message, idx)
         else:
             await callback.message.answer("🎉 Тест завершён!", reply_markup=main_menu())
-            del user_progress[user_id]
-    # неправильный ответ — молчим
+            user_progress.pop(callback.from_user.id, None)
+    else:
+        await callback.message.answer("❌ Неправильно, попробуйте ещё раз.")
+
     await callback.answer()
+
+# Обработка нажатий меню (ReplyKeyboard)
+@dp.message()
+async def handle_message(message: types.Message):
+    if message.text == "📝 Пройти тест":
+        user_progress[message.from_user.id] = 0
+        await send_test_question(message, 0)
+    elif message.text in faq_data:
+        await message.answer(faq_data[message.text], reply_markup=faq_menu())
+    elif message.text == "📄 Просмотр договора оферты":
+        await message.answer("Ссылка на документ")
+    elif message.text == "💰 Готов инвестировать":
+        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex")
+    elif message.text == "✨ Невозможное возможно благодаря рычагам":
+        await message.answer("Выберите тест ниже:", reply_markup=start_test_menu())
+    elif message.text == "📊 Общая картина":
+        await message.answer("Общая картина")
+    elif message.text == "Часто задаваемые вопросы❓":
+        await message.answer("Выберите вопрос:", reply_markup=faq_menu())
+    else:
+        await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
 
 # Запуск бота
 async def main():
