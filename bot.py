@@ -20,6 +20,9 @@ dp = Dispatcher()
 # Хранилище пользователей, которые пишут в поддержку
 support_users = set()
 
+# Хранилище сообщений бота в группе для ответа пользователю
+support_messages = {}
+
 # Главное меню (ReplyKeyboard)
 def main_menu():
     keyboard = [
@@ -53,20 +56,28 @@ async def callbacks(callback: types.CallbackQuery):
         await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
         await callback.answer()  # закрыть "часики"
 
-# Обработка нажатий меню (ReplyKeyboard)
+# Универсальный обработчик сообщений
 @dp.message()
-async def handle_message(message: types.Message):
-    # Если пользователь написал в поддержку
+async def handle_all_messages(message: types.Message):
+    # 1️⃣ Если сообщение из группы поддержки (ответ на сообщение бота)
+    if message.chat.id == SUPPORT_CHAT_ID:
+        if message.reply_to_message and message.reply_to_message.message_id in support_messages:
+            user_id = support_messages[message.reply_to_message.message_id]
+            await bot.send_message(user_id, f"Ответ поддержки:\n{message.text}")
+        return  # не обрабатываем дальше
+
+    # 2️⃣ Если пользователь пишет в поддержку
     if message.from_user.id in support_users:
-        await bot.send_message(
+        sent = await bot.send_message(
             SUPPORT_CHAT_ID,
             f"Сообщение от @{message.from_user.username or message.from_user.full_name}:\n{message.text}"
         )
+        support_messages[sent.message_id] = message.from_user.id
         support_users.remove(message.from_user.id)
         await message.answer("Ваше сообщение отправлено в поддержку!")
         return
 
-    # Работа с кнопками
+    # 3️⃣ Работа с кнопками
     if message.text == "📄 Просмотр договора оферты":
         file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
         await message.answer_document(file_id)
