@@ -37,11 +37,6 @@ def inline_back_to_menu():
     keyboard = [[InlineKeyboardButton(text="В меню", callback_data="back_to_menu")]]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-# Inline-кнопка "Завершить чат"
-def inline_end_chat():
-    keyboard = [[InlineKeyboardButton(text="❌ Завершить чат", callback_data="end_chat")]]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
