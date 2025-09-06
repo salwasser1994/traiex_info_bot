@@ -40,6 +40,13 @@ def inline_back_to_menu():
     ]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
+# Inline-кнопка "Завершить чат"
+def inline_end_chat():
+    keyboard = [
+        [InlineKeyboardButton(text="❌ Завершить чат", callback_data="end_chat")]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+
 # Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -49,12 +56,17 @@ async def cmd_start(message: types.Message):
         reply_markup=inline_back_to_menu()
     )
 
-# Обработка inline-кнопки "В меню"
+# Обработка inline-кнопок
 @dp.callback_query()
 async def callbacks(callback: types.CallbackQuery):
     if callback.data == "back_to_menu":
         await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
-        await callback.answer()  # закрыть "часики"
+        await callback.answer()
+    elif callback.data == "end_chat":
+        if callback.from_user.id in support_users:
+            support_users.remove(callback.from_user.id)
+            await callback.message.answer("Чат с поддержкой завершён ✅", reply_markup=main_menu())
+        await callback.answer("Чат завершён")
 
 # Универсальный обработчик сообщений
 @dp.message()
@@ -64,16 +76,10 @@ async def handle_all_messages(message: types.Message):
         if message.reply_to_message and message.reply_to_message.message_id in support_messages:
             user_id = support_messages[message.reply_to_message.message_id]
             await bot.send_message(user_id, f"Ответ поддержки:\n{message.text}")
-        return  # не обрабатываем дальше
+        return
 
     # 2️⃣ Если пользователь пишет в поддержку
     if message.from_user.id in support_users:
-        # Если он хочет выйти из чата
-        if message.text.lower() in ["завершить чат", "выйти", "/stop"]:
-            support_users.remove(message.from_user.id)
-            await message.answer("Чат с поддержкой завершён ✅", reply_markup=main_menu())
-            return
-
         sent = await bot.send_message(
             SUPPORT_CHAT_ID,
             f"Сообщение от @{message.from_user.username or message.from_user.full_name}:\n{message.text}"
@@ -81,12 +87,16 @@ async def handle_all_messages(message: types.Message):
         support_messages[sent.message_id] = message.from_user.id
         return
 
-    # 3️⃣ Работа с кнопками
+    # 3️⃣ Работа с кнопками меню
     if message.text == "📄 Просмотр договора оферты":
+        if message.from_user.id in support_users:
+            support_users.remove(message.from_user.id)  # завершить чат при выборе опции
         file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
         await message.answer_document(file_id)
 
     elif message.text == "💰 Готов инвестировать":
+        if message.from_user.id in support_users:
+            support_users.remove(message.from_user.id)  # завершить чат при выборе опции
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[ 
                 InlineKeyboardButton(
@@ -102,11 +112,13 @@ async def handle_all_messages(message: types.Message):
         await message.answer(
             "Вы подключены к чату с поддержкой 👨‍💻\n"
             "Напишите свой вопрос.\n"
-            "Чтобы выйти, отправьте: Завершить чат"
+            "Когда закончите, нажмите кнопку ниже 👇",
+            reply_markup=inline_end_chat()
         )
 
     else:
-        # Остальные кнопки пока без действия
+        if message.from_user.id in support_users:
+            support_users.remove(message.from_user.id)  # завершить чат при выборе опции
         await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
 
 # Запуск бота
