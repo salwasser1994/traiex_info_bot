@@ -68,13 +68,17 @@ async def handle_all_messages(message: types.Message):
 
     # 2️⃣ Если пользователь пишет в поддержку
     if message.from_user.id in support_users:
+        # Если он хочет выйти из чата
+        if message.text.lower() in ["завершить чат", "выйти", "/stop"]:
+            support_users.remove(message.from_user.id)
+            await message.answer("Чат с поддержкой завершён ✅", reply_markup=main_menu())
+            return
+
         sent = await bot.send_message(
             SUPPORT_CHAT_ID,
             f"Сообщение от @{message.from_user.username or message.from_user.full_name}:\n{message.text}"
         )
         support_messages[sent.message_id] = message.from_user.id
-        support_users.remove(message.from_user.id)
-        await message.answer("Ваше сообщение отправлено в поддержку!")
         return
 
     # 3️⃣ Работа с кнопками
@@ -84,7 +88,7 @@ async def handle_all_messages(message: types.Message):
 
     elif message.text == "💰 Готов инвестировать":
         keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[[
+            inline_keyboard=[[ 
                 InlineKeyboardButton(
                     text="Открыть инструкцию",
                     url="https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex"
@@ -95,7 +99,11 @@ async def handle_all_messages(message: types.Message):
 
     elif message.text == "Написать в поддержку":
         support_users.add(message.from_user.id)
-        await message.answer("Опишите свою проблему")
+        await message.answer(
+            "Вы подключены к чату с поддержкой 👨‍💻\n"
+            "Напишите свой вопрос.\n"
+            "Чтобы выйти, отправьте: Завершить чат"
+        )
 
     else:
         # Остальные кнопки пока без действия
