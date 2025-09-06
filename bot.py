@@ -66,6 +66,7 @@ async def callbacks(callback: types.CallbackQuery):
         if callback.from_user.id in support_users:
             support_users.remove(callback.from_user.id)
             await callback.message.answer("Чат с поддержкой завершён ✅", reply_markup=main_menu())
+            await bot.send_message(SUPPORT_CHAT_ID, f"Чат с пользователем @{callback.from_user.username or callback.from_user.full_name} завершён ❌")
         await callback.answer("Чат завершён")
 
 # Универсальный обработчик сообщений
@@ -79,7 +80,7 @@ async def handle_all_messages(message: types.Message):
         return
 
     # 2️⃣ Если пользователь пишет в поддержку
-    if message.from_user.id in support_users:
+    if message.from_user.id in support_users and message.text != "Написать в поддержку":
         sent = await bot.send_message(
             SUPPORT_CHAT_ID,
             f"Сообщение от @{message.from_user.username or message.from_user.full_name}:\n{message.text}"
@@ -87,16 +88,24 @@ async def handle_all_messages(message: types.Message):
         support_messages[sent.message_id] = message.from_user.id
         return
 
-    # 3️⃣ Работа с кнопками меню
-    if message.text == "📄 Просмотр договора оферты":
+    # 3️⃣ Работа с кнопками меню (и завершение чата при выборе)
+    if message.text in [
+        "📄 Просмотр договора оферты",
+        "💰 Готов инвестировать",
+        "📊 Общая картина",
+        "📝 Пройти тест",
+        "✨ Невозможное возможно благодаря рычагам",
+        "Дополнительные вопросы❓"
+    ]:
         if message.from_user.id in support_users:
-            support_users.remove(message.from_user.id)  # завершить чат при выборе опции
+            support_users.remove(message.from_user.id)
+            await bot.send_message(SUPPORT_CHAT_ID, f"Чат с пользователем @{message.from_user.username or message.from_user.full_name} завершён ❌")
+
+    if message.text == "📄 Просмотр договора оферты":
         file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
         await message.answer_document(file_id)
 
     elif message.text == "💰 Готов инвестировать":
-        if message.from_user.id in support_users:
-            support_users.remove(message.from_user.id)  # завершить чат при выборе опции
         keyboard = InlineKeyboardMarkup(
             inline_keyboard=[[ 
                 InlineKeyboardButton(
@@ -117,8 +126,6 @@ async def handle_all_messages(message: types.Message):
         )
 
     else:
-        if message.from_user.id in support_users:
-            support_users.remove(message.from_user.id)  # завершить чат при выборе опции
         await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
 
 # Запуск бота
