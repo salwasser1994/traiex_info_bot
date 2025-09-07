@@ -104,14 +104,14 @@ def main_menu():
 # Меню FAQ
 def faq_menu():
     keyboard = [[KeyboardButton(text=q)] for q in faq_data.keys()]
-    keyboard.append([KeyboardButton(text="🔙 Назад в меню")])
+    keyboard.append([KeyboardButton(text="⬅ Назад в меню")])
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
 # Меню перед началом теста
 def start_test_menu():
     keyboard = [
         [KeyboardButton(text="🚀 Начать тест")],
-        [KeyboardButton(text="🔙 Назад в меню")]
+        [KeyboardButton(text="⬅ Назад в меню")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
@@ -163,7 +163,7 @@ async def handle_message(message: types.Message):
         )
         keyboard = ReplyKeyboardMarkup(
             keyboard=[
-                [KeyboardButton(text="Далее"), KeyboardButton(text="🔙 Назад в меню")]
+                [KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]
             ],
             resize_keyboard=True
         )
@@ -173,14 +173,14 @@ async def handle_message(message: types.Message):
         user_state[user_id] = "step2"
         keyboard = ReplyKeyboardMarkup(
             keyboard=[
-                [KeyboardButton(text="Далее"), KeyboardButton(text="🔙 Назад в меню")]
+                [KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]
             ],
             resize_keyboard=True
         )
         await message.answer_document("BQACAgQAAxkBAAIM1Gi9Lb1C7NjFUJS8Q-LvlwkukjXaAAIYGQAClsjpUTlj-6TIVnnlNgQ",
                                       reply_markup=keyboard)
 
-    elif user_state.get(user_id) == "step2" and message.text == "Далее":
+    elif user_state.get(user_id) == "step2" and message.text == "Далее➡":
         del user_state[user_id]
         text2 = (
             "Стоит отметить что таблица сделана на примерных цифрах (сейчас именно такие), "
