@@ -101,10 +101,10 @@ def main_menu():
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# Меню FAQ
+# Меню FAQ с кнопкой "⬅ Назад в меню" сверху
 def faq_menu():
-    keyboard = [[KeyboardButton(text=q)] for q in faq_data.keys()]
-    keyboard.append([KeyboardButton(text="⬅ Назад в меню")])
+    keyboard = [[KeyboardButton(text="⬅ Назад в меню")]]  # кнопка сверху
+    keyboard += [[KeyboardButton(text=q)] for q in faq_data.keys()]  # вопросы под кнопкой
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
 # Меню перед началом теста
@@ -162,9 +162,9 @@ async def handle_message(message: types.Message):
             "И так таблицы, которые подсвечивают реальное положение дел:"
         )
         keyboard = ReplyKeyboardMarkup(
-            keyboard=[
-                [KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]
-            ],
+            keyboard=[[
+                KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")
+            ]],
             resize_keyboard=True
         )
         await message.answer(text1, reply_markup=keyboard)
@@ -172,15 +172,15 @@ async def handle_message(message: types.Message):
     elif user_state.get(user_id) == "step1" and message.text == "Далее➡":
         user_state[user_id] = "step2"
         keyboard = ReplyKeyboardMarkup(
-            keyboard=[
-                [KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]
-            ],
+            keyboard=[[
+                KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")
+            ]],
             resize_keyboard=True
         )
         await message.answer_photo(
-    photo="AgACAgQAAxkBAAIM0Gi9LaXmP4pct66F2FEKUu0WAAF84gACqMoxG5bI6VHDQO5xqprkdwEAAwIAA3kAAzYE",
-    reply_markup=keyboard
-)
+            photo="AgACAgQAAxkBAAIM0Gi9LaXmP4pct66F2FEKUu0WAAF84gACqMoxG5bI6VHDQO5xqprkdwEAAwIAA3kAAzYE",
+            reply_markup=keyboard
+        )
 
     elif user_state.get(user_id) == "step2" and message.text == "Далее➡":
         del user_state[user_id]
@@ -202,6 +202,7 @@ async def handle_message(message: types.Message):
     elif message.text == "💰 Готов инвестировать":
         await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex")
 
+    # --- Раздел FAQ ---
     elif message.text == "Часто задаваемые вопросы❓":
         await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
 
@@ -240,6 +241,7 @@ async def handle_message(message: types.Message):
 
     elif message.text == "⬅ Назад в меню":
         user_state.pop(user_id, None)
+        user_progress.pop(user_id, None)
         await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
 
     else:
