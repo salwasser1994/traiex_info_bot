@@ -14,16 +14,25 @@ TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
-# --- Функция эффекта "печатающийся текст" ---
+# --- Функция печатающегося текста с защитой от пустого сообщения ---
 async def typewriter_effect(message: types.Message, text: str, delay: float = 0.05):
-    sent_msg = await message.answer("")  # отправляем пустое сообщение
+    """
+    Имитация печатания текста ИИ по буквам.
+    Использует редактирование сообщения вместо отправки множества сообщений.
+    Защищено от пустого текста.
+    """
+    if not text:
+        text = " "  # если текст пустой, заменяем на пробел
+    
+    # Первый символ - невидимый символ, чтобы Telegram не ругался
+    sent_msg = await message.answer("\u200b")
     displayed_text = ""
     for char in text:
         displayed_text += char
         try:
             await sent_msg.edit_text(displayed_text)
         except:
-            pass  # иногда редактирование может не успевать
+            pass
         await asyncio.sleep(delay)
 
 # --- Данные FAQ ---
@@ -200,7 +209,7 @@ async def handle_message(message: types.Message):
 
     # --- Инвестиции ---
     elif message.text == "💰 Подключиться к инвестиционной сети 🛸":
-        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex")
+        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-на-traiex")
 
     # --- FAQ ---
     elif message.text == "❓ Часто задаваемые вопросы AI":
