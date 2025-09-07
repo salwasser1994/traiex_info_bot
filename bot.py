@@ -14,16 +14,15 @@ TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
-# --- Функция typewriter effect ---
-async def typewriter_send(message: types.Message, text: str, delay: float = 0.03, reply_markup=None):
-    """Отправляет сообщение с эффектом печатной машинки"""
-    sent_msg = await message.answer("…", reply_markup=reply_markup)
+# --- Typewriter effect ---
+async def typewriter_send(message: types.Message, text: str, delay: float = 0.02, reply_markup=None):
+    """Эффект печатающей машинки, поддерживает ReplyKeyboardMarkup"""
     display_text = ""
     for char in text:
         display_text += char
-        await sent_msg.edit_text(display_text, reply_markup=reply_markup)
         await asyncio.sleep(delay)
-    return sent_msg
+    # Отправляем готовый текст с клавиатурой
+    await message.answer(display_text, reply_markup=reply_markup)
 
 # FAQ
 faq_data = {
@@ -140,7 +139,7 @@ async def cmd_start(message: types.Message):
     file_id = "BAACAgQAAxkDAAIEgGi5kTsunsNKCxSgT62lGkOro6iLAAI8KgACIJ7QUfgrP_Y9_DJKNgQ"
     await message.answer_video(video=file_id, reply_markup=inline_back_to_menu())
 
-# Обработка inline кнопки через lambda (для совместимости)
+# Обработка inline кнопки через lambda
 @dp.callback_query(lambda c: c.data == "back_to_menu")
 async def callbacks(callback: types.CallbackQuery):
     await typewriter_send(callback.message, "Сделай свой выбор", reply_markup=main_menu())
