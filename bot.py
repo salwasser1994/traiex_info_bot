@@ -177,8 +177,10 @@ async def handle_message(message: types.Message):
             ],
             resize_keyboard=True
         )
-        await message.answer_document("BQACAgQAAxkBAAIM1Gi9Lb1C7NjFUJS8Q-LvlwkukjXaAAIYGQAClsjpUTlj-6TIVnnlNgQ",
-                                      reply_markup=keyboard)
+        await message.answer_photo(
+    photo="BQACAgQAAxkBAAIM1Gi9Lb1C7NjFUJS8Q-LvlwkukjXaAAIYGQAClsjpUTlj-6TIVnnlNgQ",
+    reply_markup=keyboard
+)
 
     elif user_state.get(user_id) == "step2" and message.text == "Далее➡":
         del user_state[user_id]
