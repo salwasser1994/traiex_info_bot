@@ -7,40 +7,44 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton
 )
 
-# Токен бота
+# --- Токен бота ---
 TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 
-# Создаем бота
+# --- Создаем бота ---
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
+
+# --- Функция эффекта "печатающийся текст" ---
+async def typewriter_effect(message: types.Message, text: str, delay: float = 0.05):
+    sent_msg = await message.answer("")  # отправляем пустое сообщение
+    displayed_text = ""
+    for char in text:
+        displayed_text += char
+        try:
+            await sent_msg.edit_text(displayed_text)
+        except:
+            pass  # иногда редактирование может не успевать
+        await asyncio.sleep(delay)
 
 # --- Данные FAQ ---
 faq_data = {
     "Безопасно ли пользоваться платформой?": 
         "🛡️ Доступ к вашей цифровой сущности полностью защищён передовыми протоколами будущего. "
         "Ваши средства и данные хранятся в квантовой сети.",
-    
     "Что будет, если я потеряю доступ к аккаунту?":
         "🔑 Даже при потере доступа ваша цифровая идентичность сохраняется. Восстановление через e-mail или поддержку гарантировано.",
-    
     "Нужно ли платить, чтобы начать?":
         "💸 Регистрация бесплатна. Изучите возможности сети, прежде чем инвестировать.",
-    
     "Есть ли скрытые комиссии?":
         "🛰️ Нет. Все операции прозрачны и отслеживаются алгоритмами мониторинга.",
-    
     "Можно ли вывести деньги в любой момент?":
         "🚀 Средства доступны мгновенно, без заморозки и ограничений.",
-    
     "А если я ничего не понимаю в инвестициях?":
         "🤖 Не страшно! Наш ИИ проведёт вас по маршруту и покажет оптимальные шаги.",
-    
     "Что, если платформа перестанет работать?":
         "⚡ Система использует резервные серверы и защиту от сбоев. Ваши средства сохраняются.",
-    
     "Нужно ли тратить много времени?":
         "⏱️ Достаточно нескольких минут в день для контроля цифровой матрицы.",
-    
     "Есть ли гарантии?":
         "🛡️ Гарантируем прозрачность работы и защиту активов. Магических «золотых гор» нет, но система честна."
 }
@@ -122,7 +126,7 @@ def inline_back_to_menu():
     keyboard = [[InlineKeyboardButton(text="В меню", callback_data="back_to_menu")]]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-# --- Отправка вопроса с прогресс-баром ---
+# --- Отправка вопроса с прогресс-баром и эффектом печатания ---
 async def send_test_question(message: types.Message, idx: int):
     q = test_questions[idx]
     progress = int((idx + 1) / len(test_questions) * 10)
@@ -131,7 +135,8 @@ async def send_test_question(message: types.Message, idx: int):
         keyboard=[[KeyboardButton(text=opt)] for opt in q["options"]] + [[KeyboardButton(text="⬅ Назад в меню")]],
         resize_keyboard=True
     )
-    await message.answer(f"🤖 Вопрос {idx + 1}/{len(test_questions)} {bar}\n\n{q['q']}", reply_markup=keyboard)
+    text_to_display = f"🤖 Вопрос {idx + 1}/{len(test_questions)} {bar}\n\n{q['q']}"
+    await typewriter_effect(message, text_to_display, delay=0.03)
 
 # --- Команда /start ---
 @dp.message(Command("start"))
@@ -151,7 +156,7 @@ async def callbacks(callback: types.CallbackQuery):
 async def handle_message(message: types.Message):
     user_id = message.from_user.id
 
-    # --- Главное меню ---
+    # --- Общая картина ---
     if message.text == "📊 Финансовая матрица ⚡":
         user_state[user_id] = "step1"
         text1 = (
@@ -163,7 +168,7 @@ async def handle_message(message: types.Message):
             keyboard=[[KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]],
             resize_keyboard=True
         )
-        await message.answer(text1, reply_markup=keyboard)
+        await typewriter_effect(message, text1, delay=0.04)
 
     elif user_state.get(user_id) == "step1" and message.text == "Далее➡":
         user_state[user_id] = "step2"
@@ -185,7 +190,8 @@ async def handle_message(message: types.Message):
             "— Полное использование (ИИ + сложный процент): оптимальный результат\n\n"
             "Видеть всю картину целиком крайне важно."
         )
-        await message.answer(text2, reply_markup=main_menu())
+        await typewriter_effect(message, text2, delay=0.03)
+        await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
 
     # --- Договор оферты ---
     elif message.text == "📄 Договор оферты 📡":
@@ -200,11 +206,12 @@ async def handle_message(message: types.Message):
     elif message.text == "❓ Часто задаваемые вопросы AI":
         await message.answer("Выберите вопрос для ИИ:", reply_markup=faq_menu())
     elif message.text in faq_data:
-        await message.answer(faq_data[message.text])
+        await typewriter_effect(message, faq_data[message.text], delay=0.04)
 
     # --- Тесты ---
     elif message.text == "✨ Использовать рычаги будущего 🔮":
-        await message.answer("📘 Инструкция от ИИ:\nВыберите правильный ответ на каждый вопрос.", reply_markup=start_test_menu())
+        await typewriter_effect(message, "📘 Инструкция от ИИ:\nВыберите правильный ответ на каждый вопрос.", delay=0.04)
+        await message.answer("Начать тест?", reply_markup=start_test_menu())
     elif message.text == "🚀 Начать тест":
         user_progress[user_id] = 0
         await send_test_question(message, 0)
@@ -212,19 +219,20 @@ async def handle_message(message: types.Message):
         idx = user_progress[user_id]
         q = test_questions[idx]
         if message.text == q["correct"]:
-            await message.answer("✅ ИИ подтверждает: правильный выбор!")
+            await typewriter_effect(message, "✅ ИИ подтверждает: правильный выбор!", delay=0.03)
             idx += 1
             if idx < len(test_questions):
                 user_progress[user_id] = idx
                 await send_test_question(message, idx)
             else:
-                await message.answer("🎉 Тест завершён! Цифровая матрица обновлена.", reply_markup=main_menu())
+                await typewriter_effect(message, "🎉 Тест завершён! Цифровая матрица обновлена.", delay=0.03)
+                await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
                 del user_progress[user_id]
         elif message.text == "⬅ Назад в меню":
             await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
             del user_progress[user_id]
         else:
-            await message.answer("❌ ИИ сигнализирует: неверно, попробуйте ещё раз.")
+            await typewriter_effect(message, "❌ ИИ сигнализирует: неверно, попробуйте ещё раз.", delay=0.03)
 
     # --- Назад в меню ---
     elif message.text == "⬅ Назад в меню":
