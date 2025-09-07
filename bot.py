@@ -204,7 +204,7 @@ async def handle_message(message: types.Message):
         await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
 
     elif message.text in faq_data:
-        await message.answer(faq_data[message.text], reply_markup=faq_menu())
+        await message.answer(faq_data[message.text])
 
     elif message.text == "✨ Невозможное возможно благодаря рычагам":
         instruction = (
