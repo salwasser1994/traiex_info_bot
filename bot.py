@@ -90,7 +90,6 @@ test_questions = [
 
 user_progress = {}
 user_state = {}  # состояние пользователя для "Общей картины"
-answered_questions = {}  # хранение прочитанных вопросов по пользователю
 
 # Главное меню (ReplyKeyboard)
 def main_menu():
@@ -102,13 +101,10 @@ def main_menu():
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# Меню FAQ с подсветкой уже выбранных вопросов
-def faq_menu_highlighted(user_id):
-    answered = answered_questions.get(user_id, set())
+# Меню FAQ с кнопкой "⬅ Назад в меню" сверху
+def faq_menu():
     keyboard = [[KeyboardButton(text="⬅ Назад в меню")]]  # кнопка сверху
-    for q in faq_data.keys():
-        text = f"✅ {q}" if q in answered else q
-        keyboard.append([KeyboardButton(text=text)])
+    keyboard += [[KeyboardButton(text=q)] for q in faq_data.keys()]  # вопросы под кнопкой
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
 # Меню перед началом теста
@@ -166,7 +162,9 @@ async def handle_message(message: types.Message):
             "И так таблицы, которые подсвечивают реальное положение дел:"
         )
         keyboard = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]],
+            keyboard=[[
+                KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")
+            ]],
             resize_keyboard=True
         )
         await message.answer(text1, reply_markup=keyboard)
@@ -174,7 +172,9 @@ async def handle_message(message: types.Message):
     elif user_state.get(user_id) == "step1" and message.text == "Далее➡":
         user_state[user_id] = "step2"
         keyboard = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]],
+            keyboard=[[
+                KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")
+            ]],
             resize_keyboard=True
         )
         await message.answer_photo(
@@ -204,18 +204,52 @@ async def handle_message(message: types.Message):
 
     # --- Раздел FAQ ---
     elif message.text == "Часто задаваемые вопросы❓":
-        await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu_highlighted(user_id))
+        await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
 
-    elif message.text.replace("✅ ", "") in faq_data:
-        question_text = message.text.replace("✅ ", "")
-        # Сохраняем, что вопрос уже выбран
-        if user_id not in answered_questions:
-            answered_questions[user_id] = set()
-        answered_questions[user_id].add(question_text)
-        # Отправляем ответ и обновлённую клавиатуру
-        await message.answer(faq_data[question_text], reply_markup=faq_menu_highlighted(user_id))
+    elif message.text in faq_data:
+        await message.answer(faq_data[message.text], reply_markup=faq_menu())
 
     elif message.text == "✨ Невозможное возможно благодаря рычагам":
         instruction = (
             "📘 Инструкция:\n\n"
-            "Выберите один
+            "Выберите один правильный ответ на каждый вопрос.\n"
+            "Помните, ИИ — это инструмент, а не волшебная палочка."
+        )
+        await message.answer(instruction, reply_markup=start_test_menu())
+
+    elif message.text == "🚀 Начать тест":
+        user_progress[user_id] = 0
+        await send_test_question(message, 0)
+
+    elif user_id in user_progress:
+        idx = user_progress[user_id]
+        q = test_questions[idx]
+        if message.text == q["correct"]:
+            await message.answer("✅ Правильно!")
+            idx += 1
+            if idx < len(test_questions):
+                user_progress[user_id] = idx
+                await send_test_question(message, idx)
+            else:
+                await message.answer("🎉 Тест завершён!", reply_markup=main_menu())
+                del user_progress[user_id]
+        elif message.text == "⬅ Назад в меню":
+            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+            del user_progress[user_id]
+        else:
+            pass
+
+    elif message.text == "⬅ Назад в меню":
+        user_state.pop(user_id, None)
+        user_progress.pop(user_id, None)
+        await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+
+    else:
+        await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
+
+# Запуск бота
+async def main():
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
