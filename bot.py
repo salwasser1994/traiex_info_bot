@@ -119,7 +119,7 @@ def start_test_menu():
 async def send_test_question(message: types.Message, idx: int):
     q = test_questions[idx]
     keyboard = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=opt)] for opt in q["options"]] + [[KeyboardButton(text="🔙 Назад в меню")]],
+        keyboard=[[KeyboardButton(text=opt)] for opt in q["options"]] + [[KeyboardButton(text="⬅ Назад в меню")]],
         resize_keyboard=True
     )
     await message.answer(q["q"], reply_markup=keyboard)
@@ -169,7 +169,7 @@ async def handle_message(message: types.Message):
         )
         await message.answer(text1, reply_markup=keyboard)
 
-    elif user_state.get(user_id) == "step1" and message.text == "Далее":
+    elif user_state.get(user_id) == "step1" and message.text == "Далее➡":
         user_state[user_id] = "step2"
         keyboard = ReplyKeyboardMarkup(
             keyboard=[
@@ -230,13 +230,13 @@ async def handle_message(message: types.Message):
             else:
                 await message.answer("🎉 Тест завершён!", reply_markup=main_menu())
                 del user_progress[user_id]
-        elif message.text == "🔙 Назад в меню":
+        elif message.text == "⬅ Назад в меню":
             await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
             del user_progress[user_id]
         else:
             pass
 
-    elif message.text == "🔙 Назад в меню":
+    elif message.text == "⬅ Назад в меню":
         user_state.pop(user_id, None)
         await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
 
