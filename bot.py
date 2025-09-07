@@ -89,7 +89,7 @@ test_questions = [
 ]
 
 user_progress = {}
-user_story_progress = {}  # Для отслеживания шагов "Общей картины"
+user_state = {}  # состояние пользователя для "Общей картины"
 
 # Главное меню (ReplyKeyboard)
 def main_menu():
@@ -152,8 +152,9 @@ async def callbacks(callback: types.CallbackQuery):
 async def handle_message(message: types.Message):
     user_id = message.from_user.id
 
-    # --- Общая картина ---
+    # Общая картина
     if message.text == "📊 Общая картина":
+        user_state[user_id] = "step1"
         text1 = (
             "Чтобы увидеть всю финансовую картину целиком и полностью, нужно смотреть не только глазами, "
             "но и теми частями тела, которые выведут все необходимые цифры в таблицы, сделают сравнение "
@@ -161,35 +162,37 @@ async def handle_message(message: types.Message):
             "И так таблицы, которые подсвечивают реальное положение дел:"
         )
         keyboard = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="➡️ Далее")], [KeyboardButton(text="🔙 Назад в меню")]],
+            keyboard=[
+                [KeyboardButton(text="Далее"), KeyboardButton(text="🔙 Назад в меню")]
+            ],
             resize_keyboard=True
         )
-        user_story_progress[user_id] = 1
         await message.answer(text1, reply_markup=keyboard)
 
-    elif user_id in user_story_progress and user_story_progress[user_id] == 1 and message.text == "➡️ Далее":
-        file_id = "BQACAgQAAxkBAAIM1Gi9Lb1C7NjFUJS8Q-LvlwkukjXaAAIYGQAClsjpUTlj-6TIVnnlNgQ"
+    elif user_state.get(user_id) == "step1" and message.text == "Далее":
+        user_state[user_id] = "step2"
         keyboard = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="➡️ Далее")], [KeyboardButton(text="🔙 Назад в меню")]],
+            keyboard=[
+                [KeyboardButton(text="Далее"), KeyboardButton(text="🔙 Назад в меню")]
+            ],
             resize_keyboard=True
         )
-        user_story_progress[user_id] = 2
-        await message.answer_photo(photo=file_id, reply_markup=keyboard)
+        await message.answer_document("BQACAgQAAxkBAAIM1Gi9Lb1C7NjFUJS8Q-LvlwkukjXaAAIYGQAClsjpUTlj-6TIVnnlNgQ",
+                                      reply_markup=keyboard)
 
-    elif user_id in user_story_progress and user_story_progress[user_id] == 2 and message.text == "➡️ Далее":
+    elif user_state.get(user_id) == "step2" and message.text == "Далее":
+        del user_state[user_id]
         text2 = (
-            "Стоит отметить что таблица сделана на примерных цифрах (сейчас именно такие), потому как "
-            "ежедневная торговля имеет разную доходность, но основная мысль думаю понятна:\n\n"
+            "Стоит отметить что таблица сделана на примерных цифрах (сейчас именно такие), "
+            "потому как ежедневная торговля имеет разную доходность, но основная мысль думаю понятна:\n\n"
             "— если ничего не делать будет один результат\n"
             "— если делать, но частично будет другой результат\n"
-            "— и если использовать все что имеем (искусственный интеллект + сложный процент), "
+            "— и если использовать всё что имеем (искусственный интеллект + сложный процент), "
             "получим то что нам надо (за короткий срок приличные результаты)\n\n"
             "Вот почему так важно видеть всю картину целиком."
         )
         await message.answer(text2, reply_markup=main_menu())
-        del user_story_progress[user_id]
 
-    # --- Договор оферты ---
     elif message.text == "📄 Просмотр договора оферты":
         file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
         await message.answer_document(file_id)
@@ -234,10 +237,7 @@ async def handle_message(message: types.Message):
             pass
 
     elif message.text == "🔙 Назад в меню":
-        if user_id in user_story_progress:
-            del user_story_progress[user_id]
-        if user_id in user_progress:
-            del user_progress[user_id]
+        user_state.pop(user_id, None)
         await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
 
     else:
