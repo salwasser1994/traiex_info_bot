@@ -17,20 +17,20 @@ dp = Dispatcher()
 # --- Функция печатающегося текста с защитой от пустого сообщения ---
 async def typewriter_effect(message: types.Message, text: str, delay: float = 0.05):
     """
-    Имитация печатания текста ИИ по буквам.
-    Использует редактирование сообщения вместо отправки множества сообщений.
-    Защищено от пустого текста.
+    Эффект печатания текста ИИ по буквам.
+    Защита от пустого текста с использованием невидимого символа U+2800.
     """
-    if not text:
-        text = " "  # если текст пустой, заменяем на пробел
+    if not text or text.isspace():  # если текст пустой или только пробелы
+        text = "⠀"  # невидимый символ Braille blank
     
-    # Первый символ - невидимый символ, чтобы Telegram не ругался
-    sent_msg = await message.answer("\u200b")
+    sent_msg = await message.answer("⠀")  # первое сообщение с невидимым символом
+    
     displayed_text = ""
     for char in text:
         displayed_text += char
         try:
-            await sent_msg.edit_text(displayed_text)
+            # Никогда не передаём пустую строку
+            await sent_msg.edit_text(displayed_text or "⠀")
         except:
             pass
         await asyncio.sleep(delay)
@@ -178,81 +178,3 @@ async def handle_message(message: types.Message):
             resize_keyboard=True
         )
         await typewriter_effect(message, text1, delay=0.04)
-
-    elif user_state.get(user_id) == "step1" and message.text == "Далее➡":
-        user_state[user_id] = "step2"
-        keyboard = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]],
-            resize_keyboard=True
-        )
-        await message.answer_photo(
-            photo="AgACAgQAAxkBAAIM0Gi9LaXmP4pct66F2FEKUu0WAAF84gACqMoxG5bI6VHDQO5xqprkdwEAAwIAA3kAAzYE",
-            reply_markup=keyboard
-        )
-
-    elif user_state.get(user_id) == "step2" and message.text == "Далее➡":
-        del user_state[user_id]
-        text2 = (
-            "💾 Примерные данные таблицы. Результаты могут варьироваться из-за рыночной динамики.\n\n"
-            "— Без действий: один результат\n"
-            "— Частичные действия: другой результат\n"
-            "— Полное использование (ИИ + сложный процент): оптимальный результат\n\n"
-            "Видеть всю картину целиком крайне важно."
-        )
-        await typewriter_effect(message, text2, delay=0.03)
-        await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-
-    # --- Договор оферты ---
-    elif message.text == "📄 Договор оферты 📡":
-        file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
-        await message.answer_document(file_id)
-
-    # --- Инвестиции ---
-    elif message.text == "💰 Подключиться к инвестиционной сети 🛸":
-        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-на-traiex")
-
-    # --- FAQ ---
-    elif message.text == "❓ Часто задаваемые вопросы AI":
-        await message.answer("Выберите вопрос для ИИ:", reply_markup=faq_menu())
-    elif message.text in faq_data:
-        await typewriter_effect(message, faq_data[message.text], delay=0.04)
-
-    # --- Тесты ---
-    elif message.text == "✨ Использовать рычаги будущего 🔮":
-        await typewriter_effect(message, "📘 Инструкция от ИИ:\nВыберите правильный ответ на каждый вопрос.", delay=0.04)
-        await message.answer("Начать тест?", reply_markup=start_test_menu())
-    elif message.text == "🚀 Начать тест":
-        user_progress[user_id] = 0
-        await send_test_question(message, 0)
-    elif user_id in user_progress:
-        idx = user_progress[user_id]
-        q = test_questions[idx]
-        if message.text == q["correct"]:
-            await typewriter_effect(message, "✅ ИИ подтверждает: правильный выбор!", delay=0.03)
-            idx += 1
-            if idx < len(test_questions):
-                user_progress[user_id] = idx
-                await send_test_question(message, idx)
-            else:
-                await typewriter_effect(message, "🎉 Тест завершён! Цифровая матрица обновлена.", delay=0.03)
-                await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-                del user_progress[user_id]
-        elif message.text == "⬅ Назад в меню":
-            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-            del user_progress[user_id]
-        else:
-            await typewriter_effect(message, "❌ ИИ сигнализирует: неверно, попробуйте ещё раз.", delay=0.03)
-
-    # --- Назад в меню ---
-    elif message.text == "⬅ Назад в меню":
-        user_state.pop(user_id, None)
-        await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-    else:
-        await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
-
-# --- Запуск бота ---
-async def main():
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    asyncio.run(main())
