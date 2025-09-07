@@ -90,6 +90,7 @@ test_questions = [
 
 user_progress = {}
 user_state = {}  # состояние пользователя для "Общей картины"
+answered_questions = {}  # хранение прочитанных вопросов по пользователю
 
 # Главное меню (ReplyKeyboard)
 def main_menu():
@@ -99,6 +100,15 @@ def main_menu():
         [KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
         [KeyboardButton(text="Часто задаваемые вопросы❓")]
     ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+# Меню FAQ с подсветкой уже выбранных вопросов
+def faq_menu_highlighted(user_id):
+    answered = answered_questions.get(user_id, set())
+    keyboard = [[KeyboardButton(text="⬅ Назад в меню")]]  # кнопка сверху
+    for q in faq_data.keys():
+        text = f"✅ {q}" if q in answered else q
+        keyboard.append([KeyboardButton(text=text)])
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
 # Меню перед началом теста
@@ -146,34 +156,8 @@ async def callbacks(callback: types.CallbackQuery):
 async def handle_message(message: types.Message):
     user_id = message.from_user.id
 
-    # --- Раздел FAQ ---
-    if message.text == "Часто задаваемые вопросы❓":
-        # 1. Отправляем кнопку "Назад"
-        back_keyboard = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="⬅ Назад в меню")]],
-            resize_keyboard=True
-        )
-        await message.answer("⬅ Назад в меню", reply_markup=back_keyboard)
-
-        # 2. Отправляем вопросы под отдельной клавиатурой
-        questions_keyboard = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text=q)] for q in faq_data.keys()],
-            resize_keyboard=True
-        )
-        await message.answer("Выберите интересующий вопрос:", reply_markup=questions_keyboard)
-
-    elif message.text in faq_data:
-        # Ответ на выбранный вопрос FAQ
-        await message.answer(faq_data[message.text])
-
-    # --- Назад в меню ---
-    elif message.text == "⬅ Назад в меню":
-        user_state.pop(user_id, None)
-        user_progress.pop(user_id, None)
-        await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-
     # Общая картина
-    elif message.text == "📊 Общая картина":
+    if message.text == "📊 Общая картина":
         user_state[user_id] = "step1"
         text1 = (
             "Чтобы увидеть всю финансовую картину целиком и полностью, нужно смотреть не только глазами, "
@@ -218,40 +202,20 @@ async def handle_message(message: types.Message):
     elif message.text == "💰 Готов инвестировать":
         await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex")
 
+    # --- Раздел FAQ ---
+    elif message.text == "Часто задаваемые вопросы❓":
+        await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu_highlighted(user_id))
+
+    elif message.text.replace("✅ ", "") in faq_data:
+        question_text = message.text.replace("✅ ", "")
+        # Сохраняем, что вопрос уже выбран
+        if user_id not in answered_questions:
+            answered_questions[user_id] = set()
+        answered_questions[user_id].add(question_text)
+        # Отправляем ответ и обновлённую клавиатуру
+        await message.answer(faq_data[question_text], reply_markup=faq_menu_highlighted(user_id))
+
     elif message.text == "✨ Невозможное возможно благодаря рычагам":
         instruction = (
             "📘 Инструкция:\n\n"
-            "Выберите один правильный ответ на каждый вопрос.\n"
-            "Помните, ИИ — это инструмент, а не волшебная палочка."
-        )
-        await message.answer(instruction, reply_markup=start_test_menu())
-
-    elif message.text == "🚀 Начать тест":
-        user_progress[user_id] = 0
-        await send_test_question(message, 0)
-
-    elif user_id in user_progress:
-        idx = user_progress[user_id]
-        q = test_questions[idx]
-        if message.text == q["correct"]:
-            await message.answer("✅ Правильно!")
-            idx += 1
-            if idx < len(test_questions):
-                user_progress[user_id] = idx
-                await send_test_question(message, idx)
-            else:
-                await message.answer("🎉 Тест завершён!", reply_markup=main_menu())
-                del user_progress[user_id]
-        elif message.text == "⬅ Назад в меню":
-            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-            del user_progress[user_id]
-
-    else:
-        await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
-
-# Запуск бота
-async def main():
-    await dp.start_polling(bot)
-
-if __name__ == "__main__":
-    asyncio.run(main())
+            "Выберите один
