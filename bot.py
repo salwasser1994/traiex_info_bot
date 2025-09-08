@@ -238,11 +238,12 @@ async def handle_message(message: types.Message):
                 del user_answers[user_id]
                 await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
         # шаги 1 и 2: вопросы по сценарию
-        elif len(answers) == 3:  # все вопросы отвечены
-            target = int(answers[1].replace("₽","").replace(" ",""))
-            invest = int(answers[2].replace("₽","").replace(" ",""))
-            annual_rate = 1.35  # 135% годовых
-            monthly_rate = annual_rate / 12  # доходность в месяц
+elif len(answers) == 3:  # все вопросы отвечены
+    scenario = user_scenario[user_id]
+    target = int(answers[1].replace("₽","").replace(" ",""))
+    invest = int(answers[2].replace("₽","").replace(" ",""))
+    annual_rate = 1.35  # 135% годовых
+    monthly_rate = annual_rate / 12  # доходность в месяц
 
     # формула для сложного процента с ежемесячным взносом
     months_needed = math.ceil(math.log(1 + target * monthly_rate / invest) / math.log(1 + monthly_rate))
