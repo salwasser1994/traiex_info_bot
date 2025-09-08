@@ -11,7 +11,7 @@ from aiogram.types import (
 TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 
 # Создаем бота
-bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
+bot = Bot(token=TOKEN, default_bot_properties=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
 # --- FAQ ---
