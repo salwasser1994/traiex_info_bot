@@ -188,7 +188,7 @@ async def handle_message(message: types.Message):
 
     # --- Готов инвестировать ---
     elif message.text == "💰 Готов инвестировать":
-        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-на-traiex")
+        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex")
 
     # --- FAQ ---
     elif message.text == "Часто задаваемые вопросы❓":
