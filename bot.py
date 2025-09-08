@@ -149,7 +149,7 @@ async def callbacks(callback: types.CallbackQuery):
         await callback.answer()
 
 # Обработка нажатий меню (ReplyKeyboard)
-@dp.message(Text())
+@dp.message(Text())  # ловим любые текстовые сообщения
 async def handle_message(message: types.Message):
     user_id = message.from_user.id
 
