@@ -1,9 +1,10 @@
 import asyncio
 from aiogram import Bot, Dispatcher, types
+from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
 from aiogram.types import (
     ReplyKeyboardMarkup, KeyboardButton,
-    InlineKeyboardMarkup, InlineKeyboardButton, ParseMode
+    InlineKeyboardMarkup, InlineKeyboardButton
 )
 
 # --- Токен бота ---
