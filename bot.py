@@ -238,30 +238,29 @@ async def handle_message(message: types.Message):
                 del user_answers[user_id]
                 await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
         # шаги 1 и 2: вопросы по сценарию
-        elif len(answers) in [1,2]:
-            scenario = user_scenario[user_id]
-            all_options = [opt for q in scenario_questions[scenario] for opt in q["options"]]
-            if message.text in all_options:
-                answers.append(message.text)
-                user_answers[user_id] = answers
-                if len(answers) == 3:  # все вопросы отвечены
-                    target = int(answers[1].replace("₽","").replace(" ",""))
-                    invest = int(answers[2].replace("₽","").replace(" ",""))
-                    rate = 2.5
-                    months_needed = math.ceil(math.log(target/invest * (rate-1) +1)/math.log(rate/12 +1))
-                    # текст цели
-                    if scenario == "Машина":
-                        goal_text = "вы сможете приобрести вашу цель"
-                    elif scenario == "Дом":
-                        goal_text = "вы сможете приобрести выбранный дом"
-                    else:
-                        goal_text = "вы сможете достичь желаемого пассивного дохода"
-                    await message.answer(f"С помощью нашего ИИ-бота, при ваших инвестициях {invest} ₽ в месяц, {goal_text} через {months_needed} месяцев.")
-                    keyboard = ReplyKeyboardMarkup(
-                        keyboard=[[KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="не готов")]],
-                        resize_keyboard=True
-                    )
-                    await message.answer("Что вы хотите сделать дальше?", reply_markup=keyboard)
+        elif len(answers) == 3:  # все вопросы отвечены
+    target = int(answers[1].replace("₽","").replace(" ",""))
+    invest = int(answers[2].replace("₽","").replace(" ",""))
+    annual_rate = 1.35  # 135% годовых
+    monthly_rate = annual_rate / 12  # доходность в месяц
+
+    # формула для сложного процента с ежемесячным взносом
+    months_needed = math.ceil(math.log(1 + target * monthly_rate / invest) / math.log(1 + monthly_rate))
+
+    # текст цели
+    if scenario == "Машина":
+        goal_text = "вы сможете приобрести вашу цель"
+    elif scenario == "Дом":
+        goal_text = "вы сможете приобрести выбранный дом"
+    else:
+        goal_text = "вы сможете достичь желаемого пассивного дохода"
+
+    await message.answer(f"С помощью нашего ИИ-бота, при ваших инвестициях {invest} ₽ в месяц, {goal_text} через {months_needed} месяцев.")
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="не готов")]],
+        resize_keyboard=True
+    )
+    await message.answer("Что вы хотите сделать дальше?", reply_markup=keyboard)
                 else:
                     await send_scenario_question(message, user_id, step=len(answers))
             elif message.text == "⬅ Назад в меню":
