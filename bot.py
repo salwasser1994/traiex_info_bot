@@ -7,12 +7,13 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton
 )
 
-# --- Токен бота ---
+# Токен бота
 TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 
-# --- Создаем бота ---
-bot = Bot(token=TOKEN, parse_mode=ParseMode.HTML)
+# Создаем бота
+bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
+
 
 # --- FAQ ---
 faq_data = {
