@@ -36,11 +36,53 @@ faq_data = {
         "Мы не обещаем «золотых гор», но гарантируем прозрачность, безопасность и честную работу платформы."
 }
 
-# --- Состояния пользователей ---
+# --- Тестовые вопросы ---
+test_questions = [
+    {
+        "q": "Что такое Искусственный Интеллект (ИИ) в контексте инвестиций?",
+        "options": [
+            "Инструмент, способный анализировать огромные объемы данных.",
+            "Автоматический эксперт, который гарантированно предсказывает будущее."
+        ],
+        "correct": "Инструмент, способный анализировать огромные объемы данных."
+    },
+    {
+        "q": "Как ИИ может помочь в анализе рынка?",
+        "options": [
+            "Быстро обрабатывать новости, отчёты и данные, выявляя тренды.",
+            "Полностью заменить человека и принимать все решения."
+        ],
+        "correct": "Быстро обрабатывать новости, отчёты и данные, выявляя тренды."
+    },
+    {
+        "q": "Какую роль играет ИИ в автоматизации торговли?",
+        "options": [
+            "ИИ полностью устраняет необходимость в человеческом контроле, автоматически генерируя прибыль.",
+            "ИИ может автоматизировать исполнение торговых стратегий, основанных на заданных параметрах, обеспечивая более быструю и точную торговлю."
+        ],
+        "correct": "ИИ может автоматизировать исполнение торговых стратегий, основанных на заданных параметрах, обеспечивая более быструю и точную торговлю."
+    },
+    {
+        "q": "Какую из этих задач ИИ выполняет эффективно в сфере инвестиций?",
+        "options": [
+            "Выявление мошеннических схем и предупреждение о потенциальных рисках.",
+            "Обеспечение полной гарантии прибыли, независимо от рыночной ситуации."
+        ],
+        "correct": "Выявление мошеннических схем и предупреждение о потенциальных рисках."
+    },
+    {
+        "q": "Что является ключевым фактором при использовании ИИ в инвестициях?",
+        "options": [
+            " Полностью довериться алгоритмам и не вмешиваться в процесс.",
+            "Постоянный контроль и корректировка стратегии на основе человеческого анализа и опыта."
+        ],
+        "correct": "Постоянный контроль и корректировка стратегии на основе человеческого анализа и опыта."
+    }
+]
+
 user_progress = {}
-user_state = {}  # для "Общей картины"
-user_test_path = {}  # путь теста: "машина", "дом", "пассивный доход"
-user_test_answers = {}  # хранение ответов на вопросы теста
+user_state = {}  # состояние пользователя для "Общей картины"
+user_test_progress = {}  # прогресс теста для каждого пользователя
 
 # Главное меню (ReplyKeyboard)
 def main_menu():
@@ -52,141 +94,30 @@ def main_menu():
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# Меню FAQ
+# Меню FAQ с кнопкой "⬅ Назад в меню" сверху
 def faq_menu():
-    keyboard = [[KeyboardButton(text="⬅ Назад в меню")]]
-    keyboard += [[KeyboardButton(text=q)] for q in faq_data.keys()]
+    keyboard = [[KeyboardButton(text="⬅ Назад в меню")]]  # кнопка сверху
+    keyboard += [[KeyboardButton(text=q)] for q in faq_data.keys()]  # вопросы под кнопкой
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# --- Меню теста ---
-def test_start_menu():
+# Меню перед началом теста
+def start_test_menu():
     keyboard = [
-        [KeyboardButton(text="Машина"), KeyboardButton(text="Дом"), KeyboardButton(text="Пассивный доход")],
+        [KeyboardButton(text="🚀 Начать тест")],
         [KeyboardButton(text="⬅ Назад в меню")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-def test_question_menu(options):
-    keyboard = [[KeyboardButton(text=opt)] for opt in options]
-    keyboard.append([KeyboardButton(text="⬅ Назад в меню")])
-    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+# Отправка вопроса
+async def send_test_question(message: types.Message, idx: int):
+    q = test_questions[idx]
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=opt)] for opt in q["options"]] + [[KeyboardButton(text="⬅ Назад в меню")]],
+        resize_keyboard=True
+    )
+    await message.answer(q["q"], reply_markup=keyboard)
 
-# --- Функции теста ---
-async def start_test(message: types.Message):
-    await message.answer("Выберите вашу цель:", reply_markup=test_start_menu())
-
-async def handle_test_answer(message: types.Message):
-    user_id = message.from_user.id
-    text = message.text
-
-    # Назад в меню
-    if text == "⬅ Назад в меню":
-        user_test_path.pop(user_id, None)
-        user_test_answers.pop(user_id, None)
-        await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-        return
-
-    # Первый выбор пути
-    if user_id not in user_test_path:
-        if text.lower() == "машина":
-            user_test_path[user_id] = "машина"
-            user_test_answers[user_id] = {}
-            options = ["100 000₽", "500 000₽", "1 000 000₽"]
-            await message.answer("Какая стоимость машины?", reply_markup=test_question_menu(options))
-        elif text.lower() == "дом":
-            user_test_path[user_id] = "дом"
-            user_test_answers[user_id] = {}
-            options = ["3 000 000₽", "5 000 000₽", "15 000 000₽"]
-            await message.answer("Какая стоимость дома?", reply_markup=test_question_menu(options))
-        elif text.lower() == "пассивный доход":
-            user_test_path[user_id] = "пассивный доход"
-            user_test_answers[user_id] = {}
-            options = ["100 000₽", "500 000₽", "1 000 000₽"]
-            await message.answer("Сколько в месяц хотите получать?", reply_markup=test_question_menu(options))
-        return
-
-    # Обработка второго вопроса
-    path = user_test_path[user_id]
-    answers = user_test_answers[user_id]
-
-    if path == "машина":
-        if "стоимость" not in answers:
-            answers["стоимость"] = text
-            options = ["10 000₽", "20 000₽", "30 000₽"]
-            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=test_question_menu(options))
-        else:
-            answers["инвест"] = text
-            await calculate_result(message, path, answers)
-            user_test_path.pop(user_id)
-            user_test_answers.pop(user_id)
-
-    elif path == "дом":
-        if "стоимость" not in answers:
-            answers["стоимость"] = text
-            options = ["10 000₽", "20 000₽", "30 000₽"]
-            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=test_question_menu(options))
-        else:
-            answers["инвест"] = text
-            await calculate_result(message, path, answers)
-            user_test_path.pop(user_id)
-            user_test_answers.pop(user_id)
-
-    elif path == "пассивный доход":
-        if "доход" not in answers:
-            answers["доход"] = text
-            options = ["10 000₽", "20 000₽", "30 000₽"]
-            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=test_question_menu(options))
-        else:
-            answers["инвест"] = text
-            await calculate_result(message, path, answers)
-            user_test_path.pop(user_id)
-            user_test_answers.pop(user_id)
-
-# --- Расчет результата ---
-async def calculate_result(message: types.Message, path, answers):
-    # конвертация текста в числа
-    def parse_rub(text):
-        return int(text.replace("₽", "").replace(" ", "").replace(",", ""))
-
-    invest = parse_rub(answers["инвест"])
-    rate = 1.35  # 135% годовых
-
-    if path == "машина":
-        price = parse_rub(answers["стоимость"])
-        months = 0
-        total = 0
-        while total < price:
-            total += invest
-            total *= rate ** (1/12)
-            months += 1
-        await message.answer(f"С помощью нашего ИИ-бота, при ваших инвестициях {invest}₽ в месяц, "
-                             f"вы сможете купить машину стоимостью {price}₽ через {months} месяцев.", reply_markup=main_menu())
-
-    elif path == "дом":
-        price = parse_rub(answers["стоимость"])
-        months = 0
-        total = 0
-        while total < price:
-            total += invest
-            total *= rate ** (1/12)
-            months += 1
-        await message.answer(f"С помощью нашего ИИ-бота, при ваших инвестициях {invest}₽ в месяц, "
-                             f"вы сможете купить дом стоимостью {price}₽ через {months} месяцев.", reply_markup=main_menu())
-
-    elif path == "пассивный доход":
-        target = parse_rub(answers["доход"])
-        # расчет необходимого капитала, чтобы получать target * 12 / годовой доход
-        capital = target * 12 / rate
-        months = 0
-        total = 0
-        while total < capital:
-            total += invest
-            total *= rate ** (1/12)
-            months += 1
-        await message.answer(f"С помощью нашего ИИ-бота, при ваших инвестициях {invest}₽ в месяц, "
-                             f"вы сможете получать {target}₽ в месяц пассивного дохода через {months} месяцев.", reply_markup=main_menu())
-
-# --- Inline-кнопка "В меню" ---
+# Inline-кнопка "В меню"
 def inline_back_to_menu():
     keyboard = [
         [InlineKeyboardButton(text="В меню", callback_data="back_to_menu")]
@@ -197,7 +128,10 @@ def inline_back_to_menu():
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     file_id = "BAACAgQAAxkDAAIEgGi5kTsunsNKCxSgT62lGkOro6iLAAI8KgACIJ7QUfgrP_Y9_DJKNgQ"
-    await message.answer_video(video=file_id, reply_markup=inline_back_to_menu())
+    await message.answer_video(
+        video=file_id,
+        reply_markup=inline_back_to_menu()
+    )
 
 # Обработка inline-кнопки "В меню"
 @dp.callback_query()
@@ -206,12 +140,38 @@ async def callbacks(callback: types.CallbackQuery):
         await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
         await callback.answer()
 
-# --- Обработка сообщений ---
+# Обработка нажатий меню (ReplyKeyboard)
 @dp.message()
 async def handle_message(message: types.Message):
     user_id = message.from_user.id
 
-    # --- Общая картина ---
+    # --- Кнопка "📝 Пройти тест" ---
+    if message.text == "📝 Пройти тест":
+        user_test_progress[user_id] = 0
+        await send_test_question(message, 0)
+        return
+
+    # --- Ответы на тестовые вопросы ---
+    if user_id in user_test_progress:
+        idx = user_test_progress[user_id]
+        q = test_questions[idx]
+        if message.text == q["correct"]:
+            await message.answer("✅ Правильно!")
+            idx += 1
+            if idx < len(test_questions):
+                user_test_progress[user_id] = idx
+                await send_test_question(message, idx)
+            else:
+                await message.answer("🎉 Тест завершён!", reply_markup=main_menu())
+                del user_test_progress[user_id]
+        elif message.text == "⬅ Назад в меню":
+            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+            del user_test_progress[user_id]
+        else:
+            await message.answer("❌ Неверно, попробуйте ещё раз.", reply_markup=start_test_menu())
+        return
+
+    # --- Остальной функционал без изменений ---
     if message.text == "📊 Общая картина":
         user_state[user_id] = "step1"
         text1 = (
@@ -225,7 +185,6 @@ async def handle_message(message: types.Message):
             resize_keyboard=True
         )
         await message.answer(text1, reply_markup=keyboard)
-        return
 
     elif user_state.get(user_id) == "step1" and message.text == "Далее➡":
         user_state[user_id] = "step2"
@@ -237,7 +196,6 @@ async def handle_message(message: types.Message):
             photo="AgACAgQAAxkBAAIM0Gi9LaXmP4pct66F2FEKUu0WAAF84gACqMoxG5bI6VHDQO5xqprkdwEAAwIAA3kAAzYE",
             reply_markup=keyboard
         )
-        return
 
     elif user_state.get(user_id) == "step2" and message.text == "Далее➡":
         del user_state[user_id]
@@ -251,64 +209,37 @@ async def handle_message(message: types.Message):
             "Вот почему так важно видеть всю картину целиком."
         )
         await message.answer(text2, reply_markup=main_menu())
-        return
 
-    # --- Просмотр договора ---
     elif message.text == "📄 Просмотр договора оферты":
         file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
         await message.answer_document(file_id)
-        return
 
-    # --- Готов инвестировать ---
     elif message.text == "💰 Готов инвестировать":
-        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex")
-        return
+        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-на-traiex")
 
-    # --- FAQ ---
     elif message.text == "Часто задаваемые вопросы❓":
         await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
-        return
 
     elif message.text in faq_data:
         await message.answer(faq_data[message.text])
-        return
 
-    # --- Тест ---
-    elif message.text == "📝 Пройти тест" or user_id in user_test_path:
-        if message.text == "📝 Пройти тест":
-            await start_test(message)
-        else:
-            await handle_test_answer(message)
-        return
-
-    # --- Невозможное возможно ---
     elif message.text == "✨ Невозможное возможно благодаря рычагам":
         instruction = (
             "📘 Инструкция:\n\n"
             "Выберите один правильный ответ на каждый вопрос.\n"
             "Помните, ИИ — это инструмент, а не волшебная палочка."
         )
-        await message.answer(instruction, reply_markup=ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="🚀 Начать тест")],[KeyboardButton(text="⬅ Назад в меню")]],
-            resize_keyboard=True
-        ))
-        return
+        await message.answer(instruction, reply_markup=start_test_menu())
 
-    # --- Назад в меню ---
     elif message.text == "⬅ Назад в меню":
         user_state.pop(user_id, None)
-        user_progress.pop(user_id, None)
-        user_test_path.pop(user_id, None)
-        user_test_answers.pop(user_id, None)
+        user_test_progress.pop(user_id, None)
         await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-        return
 
-    # --- По умолчанию ---
     else:
         await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
 
-
-# --- Запуск бота ---
+# Запуск бота
 async def main():
     await dp.start_polling(bot)
 
