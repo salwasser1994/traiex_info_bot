@@ -15,7 +15,7 @@ TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
-# Вопросы и ответы FAQ
+# --- FAQ данные ---
 faq_data = {
     "Безопасно ли пользоваться платформой?":
         "Да, все операции проходят через защищённое соединение, ваши данные и средства надёжно защищены.",
@@ -95,8 +95,7 @@ def main_menu():
 
 # --- FAQ меню ---
 def faq_menu():
-    keyboard = [[KeyboardButton(text="⬅ Назад в меню")]]
-    keyboard += [[KeyboardButton(text=q)] for q in faq_data.keys()]
+    keyboard = [[KeyboardButton(text="⬅ Назад в меню")]] + [[KeyboardButton(text=q)] for q in faq_data.keys()]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
 # --- Меню старого теста ---
@@ -189,7 +188,7 @@ async def handle_message(message: types.Message):
 
     # --- Готов инвестировать ---
     elif message.text == "💰 Готов инвестировать":
-        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex")
+        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-на-traiex")
 
     # --- FAQ ---
     elif message.text == "Часто задаваемые вопросы❓":
@@ -227,6 +226,7 @@ async def handle_message(message: types.Message):
         await send_scenario_question(message, user_id, step=0)
     elif user_id in user_answers:
         answers = user_answers[user_id]
+
         # шаг 0: выбор цели
         if len(answers) == 0:
             if message.text in ["Машина", "Дом", "Пассивный доход"]:
@@ -237,48 +237,52 @@ async def handle_message(message: types.Message):
             elif message.text == "⬅ Назад в меню":
                 del user_answers[user_id]
                 await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-        # шаги 1 и 2: вопросы по сценарию
-elif len(answers) == 3:  # все вопросы отвечены
-    scenario = user_scenario[user_id]
-    target = int(answers[1].replace("₽","").replace(" ",""))
-    invest = int(answers[2].replace("₽","").replace(" ",""))
-    annual_rate = 1.35  # 135% годовых
-    monthly_rate = annual_rate / 12  # доходность в месяц
+        # шаги 1 и 2: ответы на вопросы
+        elif len(answers) < 3:
+            answers.append(message.text)
+            user_answers[user_id] = answers
+            if len(answers) < 3:
+                await send_scenario_question(message, user_id, step=len(answers))
+            else:
+                # все вопросы отвечены, делаем расчёт
+                scenario = user_scenario[user_id]
+                target = int(answers[1].replace("₽", "").replace(" ", ""))
+                invest = int(answers[2].replace("₽", "").replace(" ", ""))
+                annual_rate = 1.35
+                monthly_rate = annual_rate / 12
+                months_needed = math.ceil(math.log(1 + target * monthly_rate / invest) / math.log(1 + monthly_rate))
 
-    # формула для сложного процента с ежемесячным взносом
-    months_needed = math.ceil(math.log(1 + target * monthly_rate / invest) / math.log(1 + monthly_rate))
-
-    # текст цели
-    if scenario == "Машина":
-        goal_text = "вы сможете приобрести вашу цель"
-    elif scenario == "Дом":
-        goal_text = "вы сможете приобрести выбранный дом"
-    else:
-        goal_text = "вы сможете достичь желаемого пассивного дохода"
-
-    await message.answer(f"С помощью нашего ИИ-бота, при ваших инвестициях {invest} ₽ в месяц, {goal_text} через {months_needed} месяцев.")
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="не готов")]],
-        resize_keyboard=True
-    )
-    await message.answer("Что вы хотите сделать дальше?", reply_markup=keyboard)
+                if scenario == "Машина":
+                    goal_text = "вы сможете приобрести вашу цель"
+                elif scenario == "Дом":
+                    goal_text = "вы сможете приобрести выбранный дом"
                 else:
-                    await send_scenario_question(message, user_id, step=len(answers))
-            elif message.text == "⬅ Назад в меню":
-                del user_answers[user_id]
+                    goal_text = "вы сможете достичь желаемого пассивного дохода"
+
+                await message.answer(
+                    f"С помощью нашего ИИ-бота, при ваших инвестициях {invest} ₽ в месяц, {goal_text} через {months_needed} месяцев."
+                )
+                keyboard = ReplyKeyboardMarkup(
+                    keyboard=[[KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="не готов")]],
+                    resize_keyboard=True
+                )
+                await message.answer("Что вы хотите сделать дальше?", reply_markup=keyboard)
+
+        # обработка выбора после расчета
+        elif message.text.lower() in ["готов инвестировать", "не готов"]:
+            if message.text.lower() == "готов инвестировать":
+                await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-на-traiex")
+            else:
                 await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-        elif message.text == "готов инвестировать":
-            await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-на-traiex")
-            del user_answers[user_id]
-        elif message.text == "не готов":
-            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-            del user_answers[user_id]
+            user_answers.pop(user_id, None)
+            user_scenario.pop(user_id, None)
 
     # --- Назад в меню ---
     elif message.text == "⬅ Назад в меню":
         user_state.pop(user_id, None)
         user_progress.pop(user_id, None)
         user_answers.pop(user_id, None)
+        user_scenario.pop(user_id, None)
         await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
     else:
         await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
