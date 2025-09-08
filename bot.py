@@ -1,5 +1,6 @@
 import asyncio
-from aiogram import Bot, Dispatcher, types
+from aiogram import Dispatcher, types
+from aiogram.client.bot import DefaultBot, DefaultBotProperties
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
 from aiogram.types import (
@@ -10,8 +11,10 @@ from aiogram.types import (
 # Токен бота
 TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 
-# Создаем бота
-bot = Bot(token=TOKEN, parse_mode=ParseMode.HTML)
+# Создаем бота с поддержкой parse_mode
+default_props = DefaultBotProperties(parse_mode=ParseMode.HTML)
+bot = DefaultBot(token=TOKEN, default=default_props)
+
 dp = Dispatcher()
 
 
