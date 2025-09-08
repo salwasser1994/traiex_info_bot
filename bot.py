@@ -189,7 +189,7 @@ async def handle_message(message: types.Message):
 
     # --- Готов инвестировать ---
     elif message.text == "💰 Готов инвестировать":
-        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-на-traiex")
+        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex")
 
     # --- FAQ ---
     elif message.text == "Часто задаваемые вопросы❓":
@@ -251,14 +251,14 @@ async def handle_message(message: types.Message):
                     months_needed = math.ceil(math.log(target/invest * (rate-1) +1)/math.log(rate/12 +1))
                     # текст цели
                     if scenario == "Машина":
-                        goal_text = "вы сможете приобрести вашу цель"
+                        goal_text = "вы сможете приобрести вашу машину"
                     elif scenario == "Дом":
-                        goal_text = "вы сможете приобрести выбранный дом"
+                        goal_text = "вы сможете приобрести ваш дом"
                     else:
                         goal_text = "вы сможете достичь желаемого пассивного дохода"
                     await message.answer(f"С помощью нашего ИИ-бота, при ваших инвестициях {invest} ₽ в месяц, {goal_text} через {months_needed} месяцев.")
                     keyboard = ReplyKeyboardMarkup(
-                        keyboard=[[KeyboardButton(text="готов инвестировать"), KeyboardButton(text="не готов")]],
+                        keyboard=[[KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="не готов")]],
                         resize_keyboard=True
                     )
                     await message.answer("Что вы хотите сделать дальше?", reply_markup=keyboard)
