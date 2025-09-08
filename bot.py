@@ -153,7 +153,7 @@ async def callbacks(callback: types.CallbackQuery):
 async def handle_message(message: types.Message):
     user_id = message.from_user.id
 
-    # Общая картина
+    # --- Общая картина ---
     if message.text == "📊 Общая картина":
         user_state[user_id] = "step1"
         text1 = (
@@ -163,25 +163,23 @@ async def handle_message(message: types.Message):
             "И так таблицы, которые подсвечивают реальное положение дел:"
         )
         keyboard = ReplyKeyboardMarkup(
-            keyboard=[[
-                KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")
-            ]],
+            keyboard=[[KeyboardButton("⬅ Назад в меню"), KeyboardButton("Далее➡")]],
             resize_keyboard=True
         )
         await message.answer(text1, reply_markup=keyboard)
+        return
 
     elif user_state.get(user_id) == "step1" and message.text == "Далее➡":
         user_state[user_id] = "step2"
         keyboard = ReplyKeyboardMarkup(
-            keyboard=[[
-                KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")
-            ]],
+            keyboard=[[KeyboardButton("⬅ Назад в меню"), KeyboardButton("Далее➡")]],
             resize_keyboard=True
         )
         await message.answer_photo(
             photo="AgACAgQAAxkBAAIM0Gi9LaXmP4pct66F2FEKUu0WAAF84gACqMoxG5bI6VHDQO5xqprkdwEAAwIAA3kAAzYE",
             reply_markup=keyboard
         )
+        return
 
     elif user_state.get(user_id) == "step2" and message.text == "Далее➡":
         del user_state[user_id]
@@ -195,7 +193,9 @@ async def handle_message(message: types.Message):
             "Вот почему так важно видеть всю картину целиком."
         )
         await message.answer(text2, reply_markup=main_menu())
+        return
 
+    # --- Тест целей ---
     elif message.text == "📝 Пройти тест":
         user_answers[user_id] = {}
         keyboard = ReplyKeyboardMarkup(
@@ -206,6 +206,7 @@ async def handle_message(message: types.Message):
             resize_keyboard=True
         )
         await message.answer("Какова твоя цель?", reply_markup=keyboard)
+        return
 
     elif user_id in user_answers:
         answers = user_answers[user_id]
@@ -292,20 +293,26 @@ async def handle_message(message: types.Message):
             del user_answers[user_id]
             return
 
+    # --- Просмотр документов и ссылок ---
     elif message.text == "📄 Просмотр договора оферты":
         file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
         await message.answer_document(file_id)
+        return
 
     elif message.text == "💰 Готов инвестировать":
         await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex")
+        return
 
     # --- Раздел FAQ ---
     elif message.text == "Часто задаваемые вопросы❓":
         await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
+        return
 
     elif message.text in faq_data:
         await message.answer(faq_data[message.text])
+        return
 
+    # --- Тест вопросов ---
     elif message.text == "✨ Невозможное возможно благодаря рычагам":
         instruction = (
             "📘 Инструкция:\n\n"
@@ -313,10 +320,12 @@ async def handle_message(message: types.Message):
             "Помните, ИИ — это инструмент, а не волшебная палочка."
         )
         await message.answer(instruction, reply_markup=start_test_menu())
+        return
 
     elif message.text == "🚀 Начать тест":
         user_progress[user_id] = 0
         await send_test_question(message, 0)
+        return
 
     elif user_id in user_progress:
         idx = user_progress[user_id]
@@ -335,14 +344,15 @@ async def handle_message(message: types.Message):
             del user_progress[user_id]
         else:
             pass
+        return
 
+    # --- Кнопка назад в меню ---
     elif message.text == "⬅ Назад в меню":
         user_state.pop(user_id, None)
         user_progress.pop(user_id, None)
+        user_answers.pop(user_id, None)
         await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-
-    else:
-        await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
+        return
 
 # Запуск бота
 async def main():
