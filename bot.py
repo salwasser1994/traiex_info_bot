@@ -90,6 +90,7 @@ test_questions = [
 
 user_progress = {}
 user_state = {}  # состояние пользователя для "Общей картины"
+user_answers = {}  # для теста с тремя путями
 
 # Главное меню (ReplyKeyboard)
 def main_menu():
@@ -238,6 +239,102 @@ async def handle_message(message: types.Message):
             del user_progress[user_id]
         else:
             pass
+
+elif message.text == "📝 Пройти тест":
+    user_answers[user_id] = {}
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton("Машина"), KeyboardButton("Дом"), KeyboardButton("Пассивный доход")],
+            [KeyboardButton("⬅ Назад в меню")]
+        ],
+        resize_keyboard=True
+    )
+    await message.answer("Какова твоя цель?", reply_markup=keyboard)
+
+elif user_id in user_answers:
+    answers = user_answers[user_id]
+
+    # Шаг 1: цель
+    if "goal" not in answers:
+        if message.text == "⬅ Назад в меню":
+            del user_answers[user_id]
+            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+            return
+        answers["goal"] = message.text
+        if message.text == "Машина":
+            options = ["100 000р", "500 000р", "1 000 000р"]
+            await message.answer(
+                "Какая стоимость машины?",
+                reply_markup=ReplyKeyboardMarkup(
+                    keyboard=[[KeyboardButton(o) for o in options], [KeyboardButton("⬅ Назад в меню")]],
+                    resize_keyboard=True
+                )
+            )
+        elif message.text == "Дом":
+            options = ["3 000 000р", "5 000 000р", "15 000 000р"]
+            await message.answer(
+                "Какая стоимость дома?",
+                reply_markup=ReplyKeyboardMarkup(
+                    keyboard=[[KeyboardButton(o) for o in options], [KeyboardButton("⬅ Назад в меню")]],
+                    resize_keyboard=True
+                )
+            )
+        elif message.text == "Пассивный доход":
+            options = ["100 000р", "500 000р", "1 000 000р"]
+            await message.answer(
+                "Сколько в месяц хотите получать?",
+                reply_markup=ReplyKeyboardMarkup(
+                    keyboard=[[KeyboardButton(o) for o in options], [KeyboardButton("⬅ Назад в меню")]],
+                    resize_keyboard=True
+                )
+            )
+        return
+
+    # Шаг 2: стоимость / доход
+    if "goal_value" not in answers:
+        if message.text == "⬅ Назад в меню":
+            del user_answers[user_id]
+            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+            return
+        answers["goal_value"] = message.text
+        options = ["10 000р", "20 000р", "30 000р"]
+        await message.answer(
+            "Сколько вы готовы инвестировать в месяц?",
+            reply_markup=ReplyKeyboardMarkup(
+                keyboard=[[KeyboardButton(o) for o in options], [KeyboardButton("⬅ Назад в меню")]],
+                resize_keyboard=True
+            )
+        )
+        return
+
+    # Шаг 3: месячные инвестиции
+    if "monthly_invest" not in answers:
+        if message.text == "⬅ Назад в меню":
+            del user_answers[user_id]
+            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+            return
+        answers["monthly_invest"] = message.text
+        goal_value = int(answers["goal_value"].replace("р", "").replace(" ", ""))
+        monthly = int(answers["monthly_invest"].replace("р", "").replace(" ", ""))
+        annual_return = 1.35
+        total = 0
+        months = 0
+        while total < goal_value:
+            total = (total + monthly) * (annual_return ** (1 / 12))
+            months += 1
+        years = months // 12
+        rem_months = months % 12
+
+        if answers["goal"] == "Пассивный доход":
+            result_text = f"Вы сможете получать {goal_value}₽/мес через {years} лет и {rem_months} месяцев."
+        elif answers["goal"] == "Машина":
+            result_text = f"Вы сможете купить машину за {goal_value}₽ через {years} лет и {rem_months} месяцев."
+        elif answers["goal"] == "Дом":
+            result_text = f"Вы сможете купить дом за {goal_value}₽ через {years} лет и {rem_months} месяцев."
+
+        await message.answer(result_text, reply_markup=main_menu())
+        del user_answers[user_id]
+        return
 
     elif message.text == "⬅ Назад в меню":
         user_state.pop(user_id, None)
