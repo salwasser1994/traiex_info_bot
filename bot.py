@@ -189,7 +189,7 @@ async def handle_message(message: types.Message):
 
     # --- Готов инвестировать ---
     elif message.text == "💰 Готов инвестировать":
-        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-на-traiex")
+        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex")
 
     # --- FAQ ---
     elif message.text == "Часто задаваемые вопросы❓":
@@ -247,7 +247,7 @@ async def handle_message(message: types.Message):
                 if len(answers) == 3:  # все вопросы отвечены
                     target = int(answers[1].replace("₽","").replace(" ",""))
                     invest = int(answers[2].replace("₽","").replace(" ",""))
-                    rate = 1.35
+                    rate = 2.5
                     months_needed = math.ceil(math.log(target/invest * (rate-1) +1)/math.log(rate/12 +1))
                     # текст цели
                     if scenario == "Машина":
