@@ -1,5 +1,6 @@
 import asyncio
 from aiogram import Bot, Dispatcher, types
+from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
 from aiogram.types import (
     ReplyKeyboardMarkup, KeyboardButton,
@@ -8,8 +9,15 @@ from aiogram.types import (
 
 TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 
-# --- Исправленная инициализация ---
-bot = Bot(token=TOKEN, parse_mode="HTML")
+# --- Инициализация бота с правильным DefaultBotProperties ---
+bot = Bot(
+    token=TOKEN,
+    default=DefaultBotProperties(
+        parse_mode="HTML",
+        disable_web_page_preview=False,
+        protect_content=False
+    )
+)
 dp = Dispatcher()
 
 # FAQ
@@ -60,7 +68,7 @@ cost_options = {
 }
 monthly_options = ["10 000 ₽", "20 000 ₽", "30 000 ₽"]
 
-# --- Клавиатуры ---
+# --- Меню ---
 def main_menu():
     keyboard = [
         [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
@@ -117,7 +125,7 @@ async def handle_message(message: types.Message):
     user_id = message.from_user.id
     text = message.text
 
-    # --- Обработка меню ---
+    # --- Общая картина ---
     if text == "📊 Общая картина":
         user_state[user_id] = "step1"
         text1 = (
@@ -159,7 +167,8 @@ async def handle_message(message: types.Message):
         await message.answer(text2, reply_markup=main_menu())
         return
 
-    elif text in ["⬅ Назад в меню", "Не готов"]:
+    # --- Возврат в меню ---
+    if text in ["⬅ Назад в меню", "Не готов"]:
         if user_state.get(user_id) not in ["step1", "step2"]:
             user_state.pop(user_id, None)
             user_data.pop(user_id, None)
@@ -167,37 +176,43 @@ async def handle_message(message: types.Message):
             await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
             return
 
-    elif text == "📄 Просмотр договора оферты":
+    # --- Просмотр оферты ---
+    if text == "📄 Просмотр договора оферты":
         file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
         await message.answer_document(file_id)
         return
-    elif text == "💰 Готов инвестировать":
+
+    # --- Ссылки на регистрацию ---
+    if text == "💰 Готов инвестировать":
         await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex",
-        reply_markup=main_menu())
+                             reply_markup=main_menu())
         return
-    elif text == "Часто задаваемые вопросы❓":
+
+    # --- FAQ ---
+    if text == "Часто задаваемые вопросы❓":
         await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
         return
-    elif text in faq_data:
+    if text in faq_data:
         await message.answer(faq_data[text])
         return
-    elif text == "✨ Невозможное возможно благодаря рычагам":
+
+    # --- Тест на ИИ ---
+    if text == "✨ Невозможное возможно благодаря рычагам":
         await message.answer("📘 Инструкция:\n\n"
             "Выберите один правильный ответ на каждый вопрос.\n"
             "Помните, ИИ — это инструмент, а не волшебная палочка.", reply_markup=start_test_menu())
         return
-    elif text == "🚀 Начать тест":
+    if text == "🚀 Начать тест":
         user_progress[user_id] = 0
         await send_test_question(message, 0)
         return
 
-    # --- Пройти тест / инвестиции / пассивный доход ---
+    # --- Выбор цели для инвестиций ---
     if text == "📝 Пройти тест":
         user_state[user_id] = "choose_goal"
         await message.answer("Какова твоя цель?", reply_markup=option_keyboard(goal_options))
         return
 
-    # Выбор цели
     if user_state.get(user_id) == "choose_goal":
         if text in ["Машина", "Дом"]:
             user_data[user_id] = {"goal": text}
@@ -211,14 +226,15 @@ async def handle_message(message: types.Message):
             await message.answer("Пожалуйста, выберите одну из предложенных целей.")
         return
 
-    # Остальная логика остаётся без изменений, включая расчёты и тесты
-    # ...
-
+    # --- Остальная логика расчетов и тестов ---
+    # ... (оставляем код расчетов и тестов без изменений)
+    
+    # Если сообщение не распознано
     await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
 
-# --- Запуск ---
+
 async def main():
     await dp.start_polling(bot)
 
-if __name__=="__main__":
+if __name__ == "__main__":
     asyncio.run(main())
