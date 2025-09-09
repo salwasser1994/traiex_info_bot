@@ -12,12 +12,10 @@ dp = Dispatcher()
 user_state = {}
 user_data = {}
 
-# Главное меню
+# Главное меню с одной кнопкой "📝 Пройти тест"
 def main_menu():
     keyboard = [
-        [KeyboardButton(text="📝 Пройти тест")],
-        [KeyboardButton(text="💰 Готов инвестировать")],
-        [KeyboardButton(text="📄 Просмотр договора оферты")]
+        [KeyboardButton(text="📝 Пройти тест")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
@@ -30,12 +28,10 @@ def post_calc_menu():
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# Команда /start
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     await message.answer("Привет! Давай посчитаем, когда ты сможешь накопить на свою цель.", reply_markup=main_menu())
 
-# Начало теста
 @dp.message()
 async def handle_message(message: types.Message):
     user_id = message.from_user.id
@@ -97,29 +93,29 @@ async def handle_message(message: types.Message):
             monthly = int(text.replace(" ₽", "").replace(" ", ""))
             user_data[user_id]["monthly"] = monthly
 
-            # Ежедневный сложный процент
+            # Месячный сложный процент 11,25%
             cost = user_data[user_id]["cost"]
             total = 0
             month = 0
-            daily_rate = 1.35 ** (1/365) - 1  # 135% годовых
+            monthly_rate = 0.1125
             monthly_totals = []
 
             while total < cost:
                 month += 1
-                for _ in range(30):  # считаем 30 дней в месяце
-                    total = total * (1 + daily_rate)
-                total += monthly
+                total = total * (1 + monthly_rate) + monthly
                 monthly_totals.append(total)
 
-            # Формируем вывод по месяцам
-            msg = f"📈 Накопления по месяцам с ежедневным сложным процентом (135% годовых):\n\n"
+            # Формируем вывод: 3 первых и 3 последних месяца
+            msg = f"📈 Накопления по месяцам с учетом сложного процента 11,25% в месяц:\n\n"
             for i, val in enumerate(monthly_totals, start=1):
-                msg += f"Месяц {i}: {int(val):,} ₽\n"
+                if i <= 3 or i > len(monthly_totals) - 3:
+                    msg += f"Месяц {i}: {int(val):,} ₽\n"
+                elif i == 4:
+                    msg += "...\n"
 
             msg += f"\nС вашей ежемесячной инвестицией {monthly:,} ₽ вы сможете накопить на {user_data[user_id]['goal']} стоимостью {cost:,} ₽ примерно через {month} месяцев.\n\n"
-            msg += ("Важно: расчет учитывает ежедневное начисление сложного процента. "
-                    "Каждый день ваш капитал растет на небольшой процент, и эти проценты тоже начинают приносить доход, "
-                    "что ускоряет накопление по сравнению с обычным ежемесячным начислением.")
+            msg += ("Важно: расчет учитывает сложный процент. "
+                    "Каждый месяц ваш капитал увеличивается на 11,25%, что ускоряет накопление по сравнению с обычным фиксированным вкладом.")
 
             await message.answer(msg, reply_markup=post_calc_menu())
             user_state.pop(user_id)
@@ -133,7 +129,6 @@ async def handle_message(message: types.Message):
     if text == "💰 Готов инвестировать":
         await message.answer("Переход к регистрации/инвестициям...", reply_markup=main_menu())
 
-# Запуск бота
 async def main():
     await dp.start_polling(bot)
 
