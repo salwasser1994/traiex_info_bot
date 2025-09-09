@@ -9,15 +9,7 @@ from aiogram.types import (
 
 TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 
-# --- Инициализация бота с правильным DefaultBotProperties ---
-bot = Bot(
-    token=TOKEN,
-    default=DefaultBotProperties(
-        parse_mode="HTML",
-        disable_web_page_preview=False,
-        protect_content=False
-    )
-)
+bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
 # FAQ
@@ -68,7 +60,6 @@ cost_options = {
 }
 monthly_options = ["10 000 ₽", "20 000 ₽", "30 000 ₽"]
 
-# --- Меню ---
 def main_menu():
     keyboard = [
         [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
@@ -108,7 +99,6 @@ def inline_back_to_menu():
     keyboard = [[InlineKeyboardButton(text="В меню", callback_data="back_to_menu")]]
     return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-# --- Хэндлеры ---
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     file_id = "BAACAgQAAxkDAAIEgGi5kTsunsNKCxSgT62lGkOro6iLAAI8KgACIJ7QUfgrP_Y9_DJKNgQ"
@@ -125,7 +115,7 @@ async def handle_message(message: types.Message):
     user_id = message.from_user.id
     text = message.text
 
-    # --- Общая картина ---
+    # --- Сначала обрабатываем конкретные команды меню ---
     if text == "📊 Общая картина":
         user_state[user_id] = "step1"
         text1 = (
@@ -167,8 +157,8 @@ async def handle_message(message: types.Message):
         await message.answer(text2, reply_markup=main_menu())
         return
 
-    # --- Возврат в меню ---
-    if text in ["⬅ Назад в меню", "Не готов"]:
+    elif text in ["⬅ Назад в меню", "Не готов"]:
+        # блок возврата в меню для всех остальных шагов
         if user_state.get(user_id) not in ["step1", "step2"]:
             user_state.pop(user_id, None)
             user_data.pop(user_id, None)
@@ -176,43 +166,37 @@ async def handle_message(message: types.Message):
             await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
             return
 
-    # --- Просмотр оферты ---
-    if text == "📄 Просмотр договора оферты":
+    elif text == "📄 Просмотр договора оферты":
         file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
         await message.answer_document(file_id)
         return
-
-    # --- Ссылки на регистрацию ---
-    if text == "💰 Готов инвестировать":
+    elif text == "💰 Готов инвестировать":
         await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex",
-                             reply_markup=main_menu())
+        reply_markup=main_menu())
         return
-
-    # --- FAQ ---
-    if text == "Часто задаваемые вопросы❓":
+    elif text == "Часто задаваемые вопросы❓":
         await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
         return
-    if text in faq_data:
+    elif text in faq_data:
         await message.answer(faq_data[text])
         return
-
-    # --- Тест на ИИ ---
-    if text == "✨ Невозможное возможно благодаря рычагам":
+    elif text == "✨ Невозможное возможно благодаря рычагам":
         await message.answer("📘 Инструкция:\n\n"
             "Выберите один правильный ответ на каждый вопрос.\n"
             "Помните, ИИ — это инструмент, а не волшебная палочка.", reply_markup=start_test_menu())
         return
-    if text == "🚀 Начать тест":
+    elif text == "🚀 Начать тест":
         user_progress[user_id] = 0
         await send_test_question(message, 0)
         return
 
-    # --- Выбор цели для инвестиций ---
+    # --- Тест / инвестиции / пассивный доход ---
     if text == "📝 Пройти тест":
         user_state[user_id] = "choose_goal"
         await message.answer("Какова твоя цель?", reply_markup=option_keyboard(goal_options))
         return
 
+    # Выбор цели
     if user_state.get(user_id) == "choose_goal":
         if text in ["Машина", "Дом"]:
             user_data[user_id] = {"goal": text}
@@ -226,15 +210,124 @@ async def handle_message(message: types.Message):
             await message.answer("Пожалуйста, выберите одну из предложенных целей.")
         return
 
-    # --- Остальная логика расчетов и тестов ---
-    # ... (оставляем код расчетов и тестов без изменений)
-    
-    # Если сообщение не распознано
-    await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
+    # Машина / Дом — выбор стоимости
+    if user_state.get(user_id) == "choose_cost":
+        goal = user_data[user_id]["goal"]
+        if text in cost_options[goal]:
+            cost = int(text.replace(" ₽","").replace(" ",""))
+            user_data[user_id]["cost"] = cost
+            user_state[user_id] = "choose_monthly"
+            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=option_keyboard(monthly_options))
+        else:
+            await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
+        return
 
+    # Машина / Дом — расчет накоплений
+    if user_state.get(user_id) == "choose_monthly":
+        try:
+            monthly = int(text.replace(" ₽","").replace(" ",""))
+            user_data[user_id]["monthly"] = monthly
+            cost = user_data[user_id]["cost"]
+            total = 0
+            month = 0
+            monthly_rate = 0.1125
+            monthly_totals = []
+
+            while total < cost:
+                month += 1
+                total = (total + monthly)*(1+monthly_rate)
+                monthly_totals.append(total)
+
+            msg = "📈 Накопления по месяцам с учетом ежемесячного сложного процента 11,25%:\n\n"
+            for i,val in enumerate(monthly_totals,start=1):
+                if i<=3 or i>len(monthly_totals)-3:
+                    msg+=f"Месяц {i}: {int(val):,} ₽\n"
+                elif i==4:
+                    msg+="...\n"
+
+            msg+=f"\nС вашей ежемесячной инвестицией {monthly:,} ₽ вы сможете накопить на {user_data[user_id]['goal'].lower()} стоимостью {cost:,} ₽ примерно через {month} месяцев.\n"
+            msg+="Важно: расчет учитывает сложный процент."
+
+            await message.answer(msg, reply_markup=post_calc_menu())
+            user_state.pop(user_id)
+        except:
+            await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
+        return
+
+    # Пассивный доход — выбор желаемого дохода
+    if user_state.get(user_id) == "choose_target_income":
+        if text in ["100 000 ₽","500 000 ₽","1 000 000 ₽"]:
+            target_income = int(text.replace(" ₽","").replace(" ",""))
+            user_data[user_id]["target_income"] = target_income
+            user_state[user_id] = "choose_monthly_passive"
+            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=option_keyboard(monthly_options))
+        else:
+            await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
+        return
+
+    # Пассивный доход — расчет
+    if user_state.get(user_id) == "choose_monthly_passive":
+        try:
+            monthly = int(text.replace(" ₽","").replace(" ",""))
+            user_data[user_id]["monthly"] = monthly
+            target_income = user_data[user_id]["target_income"]
+            monthly_rate = 0.1125
+            month = 0
+            capital = 0
+            monthly_totals = []
+
+            while True:
+                month += 1
+                capital = (capital + monthly)*(1+monthly_rate)
+                passive = capital*monthly_rate
+                monthly_totals.append(passive)
+                if passive>=target_income:
+                    break
+
+            msg = "📈 Пассивный доход по месяцам:\n\n"
+            for i,pas in enumerate(monthly_totals,start=1):
+                if i<=3 or i>len(monthly_totals)-3:
+                    msg+=f"Месяц {i}: {int(pas):,} ₽\n"
+                elif i==4:
+                    msg+="...\n"
+
+            msg+=f"\nПри вашей ежемесячной инвестиции {monthly:,} ₽ вы сможете получать пассивный доход {target_income:,} ₽/мес примерно через {month} месяцев.\n"
+            msg+="Важно: расчет учитывает сложный процент."
+
+            await message.answer(msg, reply_markup=post_calc_menu())
+            user_state.pop(user_id)
+        except:
+            await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
+        return
+
+    # Пройти тест заново
+    if text == "Пройти тест заново":
+        user_state[user_id] = "choose_goal"
+        await message.answer("Какова твоя цель?", reply_markup=option_keyboard(goal_options))
+        return
+
+    # Тест на ИИ
+    if user_id in user_progress:
+        idx = user_progress[user_id]
+        q = test_questions[idx]
+        if text == q["correct"]:
+            await message.answer("✅ Правильно!")
+            idx+=1
+            if idx<len(test_questions):
+                user_progress[user_id]=idx
+                await send_test_question(message, idx)
+            else:
+                await message.answer("🎉 Тест завершён!", reply_markup=main_menu())
+                del user_progress[user_id]
+        elif text=="⬅ Назад в меню":
+            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+            del user_progress[user_id]
+        return
+
+    await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
 
 async def main():
     await dp.start_polling(bot)
 
-if __name__ == "__main__":
+if __name__=="__main__":
     asyncio.run(main())
