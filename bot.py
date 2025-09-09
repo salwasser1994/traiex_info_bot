@@ -1,23 +1,24 @@
 import asyncio
 from aiogram import Bot, Dispatcher, types
-from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 
-bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
+bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-user_state = {}
 user_data = {}
+user_state = {}
 
+# Главное меню
 def main_menu():
     keyboard = [
         [KeyboardButton(text="📝 Пройти тест")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
+# Меню пост-калькуляции
 def post_calc_menu():
     keyboard = [
         [KeyboardButton(text="💰 Готов инвестировать")],
@@ -26,79 +27,98 @@ def post_calc_menu():
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-def add_back_button(options):
-    # Добавляем кнопку "⬅ Назад в меню" под вариантами
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=opt)] for opt in options] + [[KeyboardButton(text="⬅ Назад в меню")]],
-        resize_keyboard=True
-    )
+# Вопросы по тесту
+goal_options = ["Машина", "Дом"]
 
+# Варианты стоимости
+cost_options = {
+    "Машина": ["100 000 ₽", "500 000 ₽", "1 000 000 ₽"],
+    "Дом": ["3 000 000 ₽", "5 000 000 ₽", "15 000 000 ₽"]
+}
+
+# Варианты ежемесячного взноса
+monthly_options = ["10 000 ₽", "20 000 ₽", "30 000 ₽"]
+
+# Кнопки с вариантом ответа + "⬅ Назад в меню"
+def option_keyboard(options):
+    kb = [[KeyboardButton(text=opt)] for opt in options]
+    kb.append([KeyboardButton(text="⬅ Назад в меню")])
+    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+
+# Старт
 @dp.message(Command("start"))
-async def cmd_start(message: types.Message):
-    await message.answer("Привет! Давай посчитаем, когда ты сможешь накопить на свою цель.", reply_markup=main_menu())
+async def start_cmd(message: types.Message):
+    await message.answer("Привет! Выберите действие:", reply_markup=main_menu())
 
+# Обработка сообщений
 @dp.message()
 async def handle_message(message: types.Message):
     user_id = message.from_user.id
     text = message.text
 
-    if text == "📝 Пройти тест" or text == "Пройти тест заново":
+    # Возврат в главное меню
+    if text == "⬅ Назад в меню" or text == "Не готов":
+        user_state.pop(user_id, None)
+        user_data.pop(user_id, None)
+        await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+        return
+
+    # Главная кнопка "📝 Пройти тест"
+    if text == "📝 Пройти тест":
         user_state[user_id] = "choose_goal"
-        options = ["Машина", "Дом", "Пассивный доход"]
-        await message.answer("Какова твоя цель?", reply_markup=add_back_button(options))
+        await message.answer("Какова твоя цель?", reply_markup=option_keyboard(goal_options))
         return
 
+    # Выбор цели
     if user_state.get(user_id) == "choose_goal":
-        user_data[user_id] = {"goal": text}
-        if text == "Машина":
-            user_state[user_id] = "car_cost"
-            options = ["100 000 ₽", "500 000 ₽", "1 000 000 ₽"]
-            await message.answer("Какая стоимость машины?", reply_markup=add_back_button(options))
-        elif text == "Дом":
-            user_state[user_id] = "house_cost"
-            options = ["3 000 000 ₽", "5 000 000 ₽", "15 000 000 ₽"]
-            await message.answer("Какая стоимость дома?", reply_markup=add_back_button(options))
+        if text in goal_options:
+            user_data[user_id] = {"goal": text}
+            user_state[user_id] = "choose_cost"
+            await message.answer(f"Какая стоимость {text.lower()}?", reply_markup=option_keyboard(cost_options[text]))
         else:
-            await message.answer("Пока считаем только Машину или Дом.", reply_markup=main_menu())
+            await message.answer("Пожалуйста, выберите одну из предложенных целей.")
         return
 
-    if user_state.get(user_id) in ["car_cost", "house_cost"]:
-        try:
-            amount = int(text.replace(" ₽", "").replace(" ", ""))
-            user_data[user_id]["cost"] = amount
-            user_state[user_id] = "monthly_invest"
-            options = ["10 000 ₽", "20 000 ₽", "30 000 ₽"]
-            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=add_back_button(options))
-        except ValueError:
+    # Выбор стоимости
+    if user_state.get(user_id) == "choose_cost":
+        goal = user_data[user_id]["goal"]
+        if text in cost_options[goal]:
+            cost = int(text.replace(" ₽", "").replace(" ", ""))
+            user_data[user_id]["cost"] = cost
+            user_state[user_id] = "choose_monthly"
+            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=option_keyboard(monthly_options))
+        else:
             await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
         return
 
-    if user_state.get(user_id) == "monthly_invest":
+    # Выбор ежемесячного взноса и расчет
+    if user_state.get(user_id) == "choose_monthly":
         try:
             monthly = int(text.replace(" ₽", "").replace(" ", ""))
             user_data[user_id]["monthly"] = monthly
 
             cost = user_data[user_id]["cost"]
             month = 0
-            monthly_rate = 0.1125
+            monthly_rate = 0.1125  # 11,25% в месяц
             total = 0
             monthly_totals = []
 
             while total < cost:
                 month += 1
-                total = total * (1 + monthly_rate) + monthly
+                # сначала добавляем новый взнос, затем начисляем процент
+                total = (total + monthly) * (1 + monthly_rate)
                 monthly_totals.append(total)
 
-            msg = f"📈 Накопления по месяцам с учетом сложного процента 11,25% в месяц:\n\n"
+            msg = f"📈 Накопления по месяцам с учетом ежемесячного сложного процента 11,25%:\n\n"
             for i, val in enumerate(monthly_totals, start=1):
                 if i <= 3 or i > len(monthly_totals) - 3:
                     msg += f"Месяц {i}: {int(val):,} ₽\n"
                 elif i == 4:
                     msg += "...\n"
 
-            msg += f"\nС вашей ежемесячной инвестицией {monthly:,} ₽ вы сможете накопить на {user_data[user_id]['goal']} стоимостью {cost:,} ₽ примерно через {month} месяцев.\n\n"
-            msg += ("Важно: расчет учитывает сложный процент. "
-                    "Каждый месяц ваш капитал увеличивается на 11,25%, что ускоряет накопление по сравнению с обычным фиксированным вкладом.")
+            msg += f"\nС вашей ежемесячной инвестицией {monthly:,} ₽ вы сможете накопить на {user_data[user_id]['goal'].lower()} стоимостью {cost:,} ₽ примерно через {month} месяцев.\n\n"
+            msg += ("Важно: расчет учитывает сложный процент. Каждый месяц ваш капитал увеличивается на 11,25%, что ускоряет накопление по сравнению с обычным фиксированным вкладом. "
+                    "Вы можете видеть помесячные начисления в примерах выше.")
 
             await message.answer(msg, reply_markup=post_calc_menu())
             user_state.pop(user_id)
@@ -106,17 +126,15 @@ async def handle_message(message: types.Message):
             await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
         return
 
-    if text == "Не готов":
-        await message.answer("Вы вернулись в главное меню.", reply_markup=main_menu())
+    # Кнопка "Пройти тест заново"
+    if text == "Пройти тест заново":
+        user_state[user_id] = "choose_goal"
+        await message.answer("Какова твоя цель?", reply_markup=option_keyboard(goal_options))
+        return
 
-    if text == "💰 Готов инвестировать":
-        await message.answer("Переход к регистрации/инвестициям...", reply_markup=main_menu())
+    await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
 
-    if text == "⬅ Назад в меню":
-        user_state.pop(user_id, None)
-        user_data.pop(user_id, None)
-        await message.answer("Вы вернулись в главное меню.", reply_markup=main_menu())
-
+# Запуск бота
 async def main():
     await dp.start_polling(bot)
 
