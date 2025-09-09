@@ -256,7 +256,7 @@ async def handle_message(message: types.Message):
             cost = user_data[user_id]["cost"]
             total = 0
             month = 0
-            monthly_rate = 0.1125
+            monthly_rate = 0.09
             monthly_totals = []
 
             while total < cost:
@@ -264,7 +264,7 @@ async def handle_message(message: types.Message):
                 total = (total + monthly)*(1+monthly_rate)
                 monthly_totals.append(total)
 
-            msg = "📈 Накопления по месяцам с учетом ежемесячного сложного процента 11,25%:\n\n"
+            msg = "📈 Накопления по месяцам с учетом ежемесячного сложного процента 9% в среднем:\n\n"
             for i,val in enumerate(monthly_totals,start=1):
                 if i<=3 or i>len(monthly_totals)-3:
                     msg+=f"Месяц {i}: {int(val):,} ₽\n"
@@ -297,7 +297,7 @@ async def handle_message(message: types.Message):
             monthly = int(text.replace(" ₽","").replace(" ",""))
             user_data[user_id]["monthly"] = monthly
             target_income = user_data[user_id]["target_income"]
-            monthly_rate = 0.1125
+            monthly_rate = 0.09
             month = 0
             capital = 0
             monthly_totals = []
