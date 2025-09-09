@@ -115,7 +115,9 @@ async def handle_message(message: types.Message):
     user_id = message.from_user.id
     text = message.text
 
-    if text == "⬅ Назад в меню" or text == "Не готов":
+if text == "⬅ Назад в меню" or text == "Не готов":
+    # не выходим из шагов step1/step2
+    if user_state.get(user_id) not in ["step1", "step2"]:
         user_state.pop(user_id, None)
         user_data.pop(user_id, None)
         user_progress.pop(user_id, None)
