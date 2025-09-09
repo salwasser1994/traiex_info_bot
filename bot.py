@@ -19,19 +19,23 @@ def main_menu():
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# Расчёт инвестиций с помесячным выводом
+# Расчет инвестиций с ежедневным сложным процентом и помесячным выводом
 def calculate_investment_monthly(goal_amount, monthly_invest, annual_rate=135):
-    monthly_rate = annual_rate / 12 / 100  # 11,25% в месяц
+    days_in_month = 30
+    daily_rate = (1 + annual_rate/100) ** (1/365) - 1  # ежедневный сложный процент
     total = 0
     months = 0
     history = []
+    
     while total < goal_amount:
+        # Добавляем взнос за месяц
         total += monthly_invest
-        profit = total * monthly_rate
-        total += profit
+        # Начисляем ежедневный сложный процент
+        for day in range(days_in_month):
+            total += total * daily_rate
         months += 1
         history.append((months, total))
-    return months, history
+    return months, history, daily_rate
 
 # Обработка сообщений
 @dp.message()
@@ -101,17 +105,28 @@ async def handle_message(message: types.Message):
         goal_amount = user_goal_data[user_id]["goal_amount"]
         monthly_invest = user_goal_data[user_id]["monthly_invest"]
 
-        months, history = calculate_investment_monthly(goal_amount, monthly_invest)
-        # Сообщение по месяцам (показываем первые 12 месяцев + последние 3 месяца для краткости)
-        message_text = f"С помощью нашего ИИ-бота, при ваших инвестициях {monthly_invest} ₽ в месяц, " \
-                       f"вы сможете купить {user_goal_data[user_id]['goal_type']} стоимостью {goal_amount} ₽ через {months} месяцев.\n\n"
-        message_text += "Пример роста капитала по месяцам:\n"
-        for i, total in history[:12]:
+        months, history, daily_rate = calculate_investment_monthly(goal_amount, monthly_invest)
+        
+        message_text = (
+            f"С помощью нашего ИИ-бота, при ваших инвестициях {monthly_invest} ₽ в месяц, "
+            f"вы сможете купить {user_goal_data[user_id]['goal_type']} стоимостью {goal_amount} ₽ через {months} месяцев.\n\n"
+            "📈 Расчёт производится с учетом ежедневного сложного процента!\n"
+            f"Ежедневная ставка: {daily_rate*100:.4f}% (что очень важно для роста капитала)\n\n"
+            "Помесячное накопление:\n"
+        )
+
+        for i, total in history[:12]:  # первые 12 месяцев
             message_text += f"Месяц {i}: {int(total)} ₽\n"
         if months > 12:
             message_text += "...\n"
-            for i, total in history[-3:]:
+            for i, total in history[-3:]:  # последние 3 месяца
                 message_text += f"Месяц {i}: {int(total)} ₽\n"
+
+        message_text += "\n💡 Объяснение расчёта:\n" \
+                        "- Каждый месяц вы добавляете фиксированную сумму инвестиций.\n" \
+                        "- Ежедневно на текущую сумму начисляется процент по сложной схеме.\n" \
+                        "- Это позволяет капиталу расти быстрее, чем просто ежемесячное начисление.\n" \
+                        "- В результате вы достигаете цели быстрее, чем при обычных инвестициях."
 
         await message.answer(message_text, reply_markup=main_menu())
         user_state.pop(user_id, None)
