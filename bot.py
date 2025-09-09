@@ -142,11 +142,10 @@ async def handle_message(message: types.Message):
         await message.answer_document(file_id)
         return
     elif text == "💰 Готов инвестировать":
-    await message.answer(
-        "https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex",
-        reply_markup=main_menu()
-    )
-    return
+        await
+message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex",
+        reply_markup=main_menu())
+        return
     elif text == "Часто задаваемые вопросы❓":
         await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
         return
