@@ -115,14 +115,15 @@ async def handle_message(message: types.Message):
     user_id = message.from_user.id
     text = message.text
 
-if text == "⬅ Назад в меню" or text == "Не готов":
-    # не выходим из шагов step1/step2
-    if user_state.get(user_id) not in ["step1", "step2"]:
-        user_state.pop(user_id, None)
-        user_data.pop(user_id, None)
-        user_progress.pop(user_id, None)
-        await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-        return
+    # ← Здесь блок проверки меню
+    if text == "⬅ Назад в меню" or text == "Не готов":
+        # не выходим из шагов step1/step2
+        if user_state.get(user_id) not in ["step1", "step2"]:
+            user_state.pop(user_id, None)
+            user_data.pop(user_id, None)
+            user_progress.pop(user_id, None)
+            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+            return
 
     # Общая картина
     if message.text == "📊 Общая картина":
