@@ -123,19 +123,47 @@ async def handle_message(message: types.Message):
         return
 
     # Общая картина
-    if text == "📊 Общая картина":
+    if message.text == "📊 Общая картина":
         user_state[user_id] = "step1"
-        await message.answer("Финансовая картина...", reply_markup=option_keyboard(["⬅ Назад в меню","Далее➡"]))
-        return
-    elif user_state.get(user_id) == "step1" and text == "Далее➡":
+        text1 = (
+            "Чтобы увидеть всю финансовую картину целиком и полностью, нужно смотреть не только глазами, "
+            "но и теми частями тела, которые выведут все необходимые цифры в таблицы, сделают сравнение "
+            "и конечно же сделают определенные выводы.\n\n"
+            "И так таблицы, которые подсвечивают реальное положение дел:"
+        )
+        keyboard = ReplyKeyboardMarkup(
+            keyboard=[[
+                KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")
+            ]],
+            resize_keyboard=True
+        )
+        await message.answer(text1, reply_markup=keyboard)
+
+    elif user_state.get(user_id) == "step1" and message.text == "Далее➡":
         user_state[user_id] = "step2"
-        await message.answer_photo(photo="AgACAgQAAxkBAAIM0Gi9LaXmP4pct66F2FEKUu0WAAF84gACqMoxG5bI6VHDQO5xqprkdwEAAwIAA3kAAzYE",
-                                 reply_markup=option_keyboard(["⬅ Назад в меню","Далее➡"]))
-        return
-    elif user_state.get(user_id) == "step2" and text == "Далее➡":
+        keyboard = ReplyKeyboardMarkup(
+            keyboard=[[
+                KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")
+            ]],
+            resize_keyboard=True
+        )
+        await message.answer_photo(
+            photo="AgACAgQAAxkBAAIM0Gi9LaXmP4pct66F2FEKUu0WAAF84gACqMoxG5bI6VHDQO5xqprkdwEAAwIAA3kAAzYE",
+            reply_markup=keyboard
+        )
+
+    elif user_state.get(user_id) == "step2" and message.text == "Далее➡":
         del user_state[user_id]
-        await message.answer("Описание итогов...", reply_markup=main_menu())
-        return
+        text2 = (
+            "Стоит отметить что таблица сделана на примерных цифрах (сейчас именно такие), "
+            "потому как ежедневная торговля имеет разную доходность, но основная мысль думаю понятна:\n\n"
+            "— если ничего не делать будет один результат\n"
+            "— если делать, но частично будет другой результат\n"
+            "— и если использовать всё что имеем (искусственный интеллект + сложный процент), "
+            "получим то что нам надо (за короткий срок приличные результаты)\n\n"
+            "Вот почему так важно видеть всю картину целиком."
+        )
+        await message.answer(text2, reply_markup=main_menu())
 
     elif text == "📄 Просмотр договора оферты":
         file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
