@@ -18,7 +18,7 @@ def main_menu():
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# Меню пост-калькуляции
+# Меню после расчета
 def post_calc_menu():
     keyboard = [
         [KeyboardButton(text="💰 Готов инвестировать")],
@@ -27,7 +27,7 @@ def post_calc_menu():
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# Вопросы по тесту
+# Варианты целей
 goal_options = ["Машина", "Дом", "Пассивный доход"]
 
 # Варианты стоимости
@@ -39,16 +39,16 @@ cost_options = {
 # Варианты ежемесячного взноса
 monthly_options = ["10 000 ₽", "20 000 ₽", "30 000 ₽"]
 
-# Варианты дохода для пассивного дохода
-passive_income_options = ["100 000 ₽", "500 000 ₽", "1 000 000 ₽"]
+# Варианты пассивного дохода
+passive_options = ["100 000 ₽", "500 000 ₽", "1 000 000 ₽"]
 
-# Кнопки с вариантом ответа + "⬅ Назад в меню"
+# Кнопки с вариантами + "⬅ Назад в меню"
 def option_keyboard(options):
     kb = [[KeyboardButton(text=opt)] for opt in options]
     kb.append([KeyboardButton(text="⬅ Назад в меню")])
     return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
-# Старт
+# Команда /start
 @dp.message(Command("start"))
 async def start_cmd(message: types.Message):
     await message.answer("Привет! Выберите действие:", reply_markup=main_menu())
@@ -77,8 +77,8 @@ async def handle_message(message: types.Message):
         if text in goal_options:
             user_data[user_id] = {"goal": text}
             if text == "Пассивный доход":
-                user_state[user_id] = "choose_passive_income"
-                await message.answer("Сколько в месяц хотите получать пассивного дохода?", reply_markup=option_keyboard(passive_income_options))
+                user_state[user_id] = "choose_target_income"
+                await message.answer("Сколько в месяц вы хотите получать?", reply_markup=option_keyboard(passive_options))
             else:
                 user_state[user_id] = "choose_cost"
                 await message.answer(f"Какая стоимость {text.lower()}?", reply_markup=option_keyboard(cost_options[text]))
@@ -86,7 +86,18 @@ async def handle_message(message: types.Message):
             await message.answer("Пожалуйста, выберите одну из предложенных целей.")
         return
 
-    # Выбор стоимости (Машина / Дом)
+    # Пассивный доход — выбор желаемого дохода
+    if user_state.get(user_id) == "choose_target_income":
+        if text in passive_options:
+            target_income = int(text.replace(" ₽", "").replace(" ", ""))
+            user_data[user_id]["target_income"] = target_income
+            user_state[user_id] = "choose_monthly_passive"
+            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=option_keyboard(monthly_options))
+        else:
+            await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
+        return
+
+    # Выбор стоимости (Машина/Дом)
     if user_state.get(user_id) == "choose_cost":
         goal = user_data[user_id]["goal"]
         if text in cost_options[goal]:
@@ -98,7 +109,7 @@ async def handle_message(message: types.Message):
             await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
         return
 
-    # Выбор ежемесячного взноса и расчет (Машина / Дом)
+    # Расчет накопления для Машина/Дом
     if user_state.get(user_id) == "choose_monthly":
         try:
             monthly = int(text.replace(" ₽", "").replace(" ", ""))
@@ -106,7 +117,7 @@ async def handle_message(message: types.Message):
 
             cost = user_data[user_id]["cost"]
             month = 0
-            monthly_rate = 0.1125  # 11,25% в месяц
+            monthly_rate = 0.1125
             total = 0
             monthly_totals = []
 
@@ -122,9 +133,8 @@ async def handle_message(message: types.Message):
                 elif i == 4:
                     msg += "...\n"
 
-            msg += f"\nС вашей ежемесячной инвестицией {monthly:,} ₽ вы сможете накопить на {user_data[user_id]['goal'].lower()} стоимостью {cost:,} ₽ примерно через {month} месяцев.\n\n"
-            msg += ("Важно: расчет учитывает сложный процент. Каждый месяц ваш капитал увеличивается на 11,25%, что ускоряет накопление по сравнению с обычным фиксированным вкладом. "
-                    "Вы можете видеть помесячные начисления в примерах выше.")
+            msg += f"\nС вашей ежемесячной инвестицией {monthly:,} ₽ вы сможете накопить на {user_data[user_id]['goal'].lower()} стоимостью {cost:,} ₽ примерно через {month} месяцев.\n"
+            msg += ("Важно: расчет учитывает сложный процент. Каждый месяц ваш капитал увеличивается на 11,25%, что ускоряет накопление.")
 
             await message.answer(msg, reply_markup=post_calc_menu())
             user_state.pop(user_id)
@@ -132,21 +142,11 @@ async def handle_message(message: types.Message):
             await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
         return
 
-    # Путь Пассивного дохода: выбор суммы дохода
-    if user_state.get(user_id) == "choose_passive_income":
-        if text in passive_income_options:
-            target_income = int(text.replace(" ₽", "").replace(" ", ""))
-            user_data[user_id]["target_income"] = target_income
-            user_state[user_id] = "choose_monthly_passive"
-            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=option_keyboard(monthly_options))
-        else:
-            await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
-        return
-
-    # Путь Пассивного дохода: выбор ежемесячного взноса и расчет
+    # Расчет пассивного дохода
     if user_state.get(user_id) == "choose_monthly_passive":
         try:
             monthly = int(text.replace(" ₽", "").replace(" ", ""))
+            user_data[user_id]["monthly"] = monthly
             target_income = user_data[user_id]["target_income"]
             monthly_rate = 0.1125
             month = 0
@@ -157,20 +157,19 @@ async def handle_message(message: types.Message):
                 month += 1
                 capital = (capital + monthly) * (1 + monthly_rate)
                 passive = capital * monthly_rate
-                monthly_totals.append((capital, passive))
+                monthly_totals.append(passive)
                 if passive >= target_income:
                     break
 
-            msg = f"📈 Капитал и пассивный доход по месяцам:\n\n"
-            for i, (cap, pas) in enumerate(monthly_totals, start=1):
+            msg = f"📈 Пассивный доход по месяцам:\n\n"
+            for i, pas in enumerate(monthly_totals, start=1):
                 if i <= 3 or i > len(monthly_totals) - 3:
-                    msg += f"Месяц {i}: капитал {int(cap):,} ₽, пассивный доход {int(pas):,} ₽\n"
+                    msg += f"Месяц {i}: {int(pas):,} ₽\n"
                 elif i == 4:
                     msg += "...\n"
 
             msg += f"\nПри вашей ежемесячной инвестиции {monthly:,} ₽ вы сможете получать пассивный доход {target_income:,} ₽/мес примерно через {month} месяцев.\n"
-            msg += ("Важно: расчет учитывает ежедневный сложный процент, начисляемый ежемесячно для упрощения демонстрации. "
-                    "Вы видите капитал и доход на конец каждого месяца.")
+            msg += "Важно: расчет учитывает сложный процент. Пассивный доход начисляется ежемесячно на ваш капитал."
 
             await message.answer(msg, reply_markup=post_calc_menu())
             user_state.pop(user_id)
