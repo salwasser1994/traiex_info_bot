@@ -4,7 +4,7 @@ from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
-TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
+TOKEN = "ВАШ_ТОКЕН_ЗДЕСЬ"
 
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
@@ -12,14 +12,12 @@ dp = Dispatcher()
 user_state = {}
 user_data = {}
 
-# Главное меню с одной кнопкой "📝 Пройти тест"
 def main_menu():
     keyboard = [
         [KeyboardButton(text="📝 Пройти тест")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# Клавиатура после расчета
 def post_calc_menu():
     keyboard = [
         [KeyboardButton(text="💰 Готов инвестировать")],
@@ -27,6 +25,13 @@ def post_calc_menu():
         [KeyboardButton(text="Пройти тест заново")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+
+def add_back_button(options):
+    # Добавляем кнопку "⬅ Назад в меню" под вариантами
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text=opt)] for opt in options] + [[KeyboardButton(text="⬅ Назад в меню")]],
+        resize_keyboard=True
+    )
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -39,37 +44,22 @@ async def handle_message(message: types.Message):
 
     if text == "📝 Пройти тест" or text == "Пройти тест заново":
         user_state[user_id] = "choose_goal"
-        keyboard = ReplyKeyboardMarkup(
-            keyboard=[
-                [KeyboardButton(text="Машина"), KeyboardButton(text="Дом"), KeyboardButton(text="Пассивный доход")]
-            ],
-            resize_keyboard=True
-        )
-        await message.answer("Какова твоя цель?", reply_markup=keyboard)
+        options = ["Машина", "Дом", "Пассивный доход"]
+        await message.answer("Какова твоя цель?", reply_markup=add_back_button(options))
         return
 
     if user_state.get(user_id) == "choose_goal":
         user_data[user_id] = {"goal": text}
         if text == "Машина":
             user_state[user_id] = "car_cost"
-            keyboard = ReplyKeyboardMarkup(
-                keyboard=[
-                    [KeyboardButton(text="100 000 ₽"), KeyboardButton(text="500 000 ₽"), KeyboardButton(text="1 000 000 ₽")]
-                ],
-                resize_keyboard=True
-            )
-            await message.answer("Какая стоимость машины?", reply_markup=keyboard)
+            options = ["100 000 ₽", "500 000 ₽", "1 000 000 ₽"]
+            await message.answer("Какая стоимость машины?", reply_markup=add_back_button(options))
         elif text == "Дом":
             user_state[user_id] = "house_cost"
-            keyboard = ReplyKeyboardMarkup(
-                keyboard=[
-                    [KeyboardButton(text="3 000 000 ₽"), KeyboardButton(text="5 000 000 ₽"), KeyboardButton(text="15 000 000 ₽")]
-                ],
-                resize_keyboard=True
-            )
-            await message.answer("Какая стоимость дома?", reply_markup=keyboard)
+            options = ["3 000 000 ₽", "5 000 000 ₽", "15 000 000 ₽"]
+            await message.answer("Какая стоимость дома?", reply_markup=add_back_button(options))
         else:
-            await message.answer("Пока считаем только Машину или Дом.")
+            await message.answer("Пока считаем только Машину или Дом.", reply_markup=main_menu())
         return
 
     if user_state.get(user_id) in ["car_cost", "house_cost"]:
@@ -77,13 +67,8 @@ async def handle_message(message: types.Message):
             amount = int(text.replace(" ₽", "").replace(" ", ""))
             user_data[user_id]["cost"] = amount
             user_state[user_id] = "monthly_invest"
-            keyboard = ReplyKeyboardMarkup(
-                keyboard=[
-                    [KeyboardButton(text="10 000 ₽"), KeyboardButton(text="20 000 ₽"), KeyboardButton(text="30 000 ₽")]
-                ],
-                resize_keyboard=True
-            )
-            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=keyboard)
+            options = ["10 000 ₽", "20 000 ₽", "30 000 ₽"]
+            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=add_back_button(options))
         except ValueError:
             await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
         return
@@ -93,11 +78,10 @@ async def handle_message(message: types.Message):
             monthly = int(text.replace(" ₽", "").replace(" ", ""))
             user_data[user_id]["monthly"] = monthly
 
-            # Месячный сложный процент 11,25%
             cost = user_data[user_id]["cost"]
-            total = 0
             month = 0
             monthly_rate = 0.1125
+            total = 0
             monthly_totals = []
 
             while total < cost:
@@ -105,7 +89,6 @@ async def handle_message(message: types.Message):
                 total = total * (1 + monthly_rate) + monthly
                 monthly_totals.append(total)
 
-            # Формируем вывод: 3 первых и 3 последних месяца
             msg = f"📈 Накопления по месяцам с учетом сложного процента 11,25% в месяц:\n\n"
             for i, val in enumerate(monthly_totals, start=1):
                 if i <= 3 or i > len(monthly_totals) - 3:
@@ -128,6 +111,11 @@ async def handle_message(message: types.Message):
 
     if text == "💰 Готов инвестировать":
         await message.answer("Переход к регистрации/инвестициям...", reply_markup=main_menu())
+
+    if text == "⬅ Назад в меню":
+        user_state.pop(user_id, None)
+        user_data.pop(user_id, None)
+        await message.answer("Вы вернулись в главное меню.", reply_markup=main_menu())
 
 async def main():
     await dp.start_polling(bot)
