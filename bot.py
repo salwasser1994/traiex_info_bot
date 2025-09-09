@@ -1,11 +1,7 @@
 import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
-from aiogram.filters import Command
-from aiogram.types import (
-    ReplyKeyboardMarkup, KeyboardButton,
-    InlineKeyboardMarkup, InlineKeyboardButton
-)
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 # Токен бота
 TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
@@ -14,288 +10,116 @@ TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
-# Вопросы и ответы FAQ
-faq_data = {
-    "Безопасно ли пользоваться платформой?":
-        "Да, все операции проходят через защищённое соединение, ваши данные и средства надёжно защищены.",
+user_state = {}      # состояние пользователя
+user_goal_data = {}  # данные для расчета
 
-    "Что будет, если я потеряю доступ к аккаунту?":
-        "Вы сможете восстановить доступ через e-mail или поддержку — ваш аккаунт не пропадёт.",
-
-    "Нужно ли платить, чтобы начать?":
-        "Нет, регистрация бесплатная. Вы можете изучить все материалы и только потом принять решение о вложениях.",
-
-    "Есть ли скрытые комиссии?":
-        "Нет, все комиссии прозрачные и заранее указаны. Вы всегда знаете, сколько и за что платите.",
-
-    "Можно ли вывести деньги в любой момент?":
-        "Да, средства доступны для вывода по вашему желанию, без «заморозки» и обязательных сроков.",
-
-    "А если я ничего не понимаю в инвестициях?":
-        "Не страшно 🙂 Всё построено так, чтобы даже новичок мог разобраться. Есть инструкции, видеоуроки и поддержка.",
-
-    "Что, если платформа перестанет работать?":
-        "Мы используем резервные сервера и проверенные механизмы. Даже в случае сбоя деньги остаются у вас.",
-
-    "Нужно ли тратить много времени?":
-        "Нет, достаточно уделять несколько минут в день для проверки информации и управления своим счётом.",
-
-    "Есть ли гарантии?":
-        "Мы не обещаем «золотых гор», но гарантируем прозрачность, безопасность и честную работу платформы."
-}
-
-# --- Тестовые вопросы ---
-test_questions = [
-    {
-        "q": "Что такое Искусственный Интеллект (ИИ) в контексте инвестиций?",
-        "options": [
-            "Инструмент, способный анализировать огромные объемы данных.",
-            "Автоматический эксперт, который гарантированно предсказывает будущее."
-        ],
-        "correct": "Инструмент, способный анализировать огромные объемы данных."
-    },
-    {
-        "q": "Как ИИ может помочь в анализе рынка?",
-        "options": [
-            "Быстро обрабатывать новости, отчёты и данные, выявляя тренды.",
-            "Полностью заменить человека и принимать все решения."
-        ],
-        "correct": "Быстро обрабатывать новости, отчёты и данные, выявляя тренды."
-    },
-    {
-        "q": "Какую роль играет ИИ в автоматизации торговли?",
-        "options": [
-            "ИИ полностью устраняет необходимость в человеческом контроле, автоматически генерируя прибыль.",
-            "ИИ может автоматизировать исполнение торговых стратегий, основанных на заданных параметрах, обеспечивая более быструю и точную торговлю."
-        ],
-        "correct": "ИИ может автоматизировать исполнение торговых стратегий, основанных на заданных параметрах, обеспечивая более быструю и точную торговлю."
-    },
-    {
-        "q": "Какую из этих задач ИИ выполняет эффективно в сфере инвестиций?",
-        "options": [
-            "Выявление мошеннических схем и предупреждение о потенциальных рисках.",
-            "Обеспечение полной гарантии прибыли, независимо от рыночной ситуации."
-        ],
-        "correct": "Выявление мошеннических схем и предупреждение о потенциальных рисках."
-    },
-    {
-        "q": "Что является ключевым фактором при использовании ИИ в инвестициях?",
-        "options": [
-            " Полностью довериться алгоритмам и не вмешиваться в процесс.",
-            "Постоянный контроль и корректировка стратегии на основе человеческого анализа и опыта."
-        ],
-        "correct": "Постоянный контроль и корректировка стратегии на основе человеческого анализа и опыта."
-    }
-]
-
-user_progress = {}
-user_state = {}  # состояние пользователя для "Общей картины"
-user_goal = {}   # хранение ответов для "📝 Пройти тест"
-
-# Главное меню (ReplyKeyboard)
+# Главное меню
 def main_menu():
     keyboard = [
-        [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
-        [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
-        [KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
-        [KeyboardButton(text="Часто задаваемые вопросы❓")]
+        [KeyboardButton(text="📝 Пройти тест")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# Меню FAQ с кнопкой "⬅ Назад в меню" сверху
-def faq_menu():
-    keyboard = [[KeyboardButton(text="⬅ Назад в меню")]]
-    keyboard += [[KeyboardButton(text=q)] for q in faq_data.keys()]
-    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+# Расчёт инвестиций
+def calculate_investment(goal_amount, monthly_invest, annual_rate=135):
+    monthly_rate = annual_rate / 12 / 100
+    total = 0
+    months = 0
+    while total < goal_amount:
+        total += monthly_invest
+        profit = total * monthly_rate
+        total += profit
+        months += 1
+    return months
 
-# Меню перед началом теста
-def start_test_menu():
-    keyboard = [
-        [KeyboardButton(text="🚀 Начать тест")],
-        [KeyboardButton(text="⬅ Назад в меню")]
-    ]
-    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
-
-# Отправка вопроса
-async def send_test_question(message: types.Message, idx: int):
-    q = test_questions[idx]
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text=opt)] for opt in q["options"]] + [[KeyboardButton(text="⬅ Назад в меню")]],
-        resize_keyboard=True
-    )
-    await message.answer(q["q"], reply_markup=keyboard)
-
-# Inline-кнопка "В меню"
-def inline_back_to_menu():
-    keyboard = [[InlineKeyboardButton(text="В меню", callback_data="back_to_menu")]]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
-
-# Команда /start
-@dp.message(Command("start"))
-async def cmd_start(message: types.Message):
-    file_id = "BAACAgQAAxkDAAIEgGi5kTsunsNKCxSgT62lGkOro6iLAAI8KgACIJ7QUfgrP_Y9_DJKNgQ"
-    await message.answer_video(video=file_id, reply_markup=inline_back_to_menu())
-
-# Обработка inline-кнопки "В меню"
-@dp.callback_query()
-async def callbacks(callback: types.CallbackQuery):
-    if callback.data == "back_to_menu":
-        await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
-        await callback.answer()
-
-# Функция расчета накоплений с учетом сложного процента
-def calculate_investment(target, monthly_invest):
-    balance = 0
-    month = 0
-    monthly_rate = 0.1125  # 135% годовых = 11.25% в месяц
-    result = []
-
-    while balance < target:
-        month += 1
-        balance = balance * (1 + monthly_rate) + monthly_invest
-        result.append((month, balance))
-
-    return result
-
-# Обработка нажатий меню (ReplyKeyboard)
+# Обработка сообщений
 @dp.message()
 async def handle_message(message: types.Message):
     user_id = message.from_user.id
 
-    # Общая картина
-    if message.text == "📊 Общая картина":
-        user_state[user_id] = "step1"
-        text1 = (
-            "Чтобы увидеть всю финансовую картину целиком и полностью, нужно смотреть не только глазами, "
-            "но и теми частями тела, которые выведут все необходимые цифры в таблицы, сделают сравнение "
-            "и конечно же сделают определенные выводы.\n\n"
-            "И так таблицы, которые подсвечивают реальное положение дел:"
-        )
+    # Стартовый выбор
+    if message.text == "📝 Пройти тест":
+        user_state[user_id] = "goal_choice"
         keyboard = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]],
+            keyboard=[
+                [KeyboardButton(text="Машина"), KeyboardButton(text="Дом"), KeyboardButton(text="Пассивный доход")],
+                [KeyboardButton(text="⬅ Назад в меню")]
+            ],
             resize_keyboard=True
         )
-        await message.answer(text1, reply_markup=keyboard)
+        await message.answer("Какова твоя цель?", reply_markup=keyboard)
+        return
 
-    elif user_state.get(user_id) == "step1" and message.text == "Далее➡":
-        user_state[user_id] = "step2"
-        keyboard = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]],
-            resize_keyboard=True
-        )
-        await message.answer_photo(
-            photo="AgACAgQAAxkBAAIM0Gi9LaXmP4pct66F2FEKUu0WAAF84gACqMoxG5bI6VHDQO5xqprkdwEAAwIAA3kAAzYE",
-            reply_markup=keyboard
-        )
-
-    elif user_state.get(user_id) == "step2" and message.text == "Далее➡":
-        del user_state[user_id]
-        text2 = (
-            "Стоит отметить что таблица сделана на примерных цифрах (сейчас именно такие), "
-            "потому как ежедневная торговля имеет разную доходность, но основная мысль думаю понятна:\n\n"
-            "— если ничего не делать будет один результат\n"
-            "— если делать, но частично будет другой результат\n"
-            "— и если использовать всё что имеем (искусственный интеллект + сложный процент), "
-            "получим то что нам надо (за короткий срок приличные результаты)\n\n"
-            "Вот почему так важно видеть всю картину целиком."
-        )
-        await message.answer(text2, reply_markup=main_menu())
-
-    elif message.text == "📄 Просмотр договора оферты":
-        file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
-        await message.answer_document(file_id)
-
-    elif message.text == "💰 Готов инвестировать":
-        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex")
-
-    # --- Раздел FAQ ---
-    elif message.text == "Часто задаваемые вопросы❓":
-        await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
-
-    elif message.text in faq_data:
-        await message.answer(faq_data[message.text])
-
-    elif message.text == "✨ Невозможное возможно благодаря рычагам":
-        instruction = (
-            "📘 Инструкция:\n\n"
-            "Выберите один правильный ответ на каждый вопрос.\n"
-            "Помните, ИИ — это инструмент, а не волшебная палочка."
-        )
-        await message.answer(instruction, reply_markup=start_test_menu())
-
-    elif message.text == "🚀 Начать тест":
-        user_progress[user_id] = 0
-        await send_test_question(message, 0)
-
-    elif user_id in user_progress:
-        idx = user_progress[user_id]
-        q = test_questions[idx]
-        if message.text == q["correct"]:
-            await message.answer("✅ Правильно!")
-            idx += 1
-            if idx < len(test_questions):
-                user_progress[user_id] = idx
-                await send_test_question(message, idx)
-            else:
-                await message.answer("🎉 Тест завершён!", reply_markup=main_menu())
-                del user_progress[user_id]
-        elif message.text == "⬅ Назад в меню":
-            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-            del user_progress[user_id]
+    # Выбор цели
+    if user_state.get(user_id) == "goal_choice":
+        user_goal_data[user_id] = {"goal_type": message.text}
+        if message.text == "Машина":
+            keyboard = ReplyKeyboardMarkup(
+                keyboard=[
+                    [KeyboardButton(text="100 000 ₽"), KeyboardButton(text="500 000 ₽"), KeyboardButton(text="1 000 000 ₽")],
+                    [KeyboardButton(text="⬅ Назад в меню")]
+                ],
+                resize_keyboard=True
+            )
+            user_state[user_id] = "goal_amount"
+            await message.answer("Какая стоимость машины?", reply_markup=keyboard)
+            return
+        elif message.text == "Дом":
+            keyboard = ReplyKeyboardMarkup(
+                keyboard=[
+                    [KeyboardButton(text="3 000 000 ₽"), KeyboardButton(text="5 000 000 ₽"), KeyboardButton(text="15 000 000 ₽")],
+                    [KeyboardButton(text="⬅ Назад в меню")]
+                ],
+                resize_keyboard=True
+            )
+            user_state[user_id] = "goal_amount"
+            await message.answer("Какая стоимость дома?", reply_markup=keyboard)
+            return
         else:
-            pass
+            await message.answer("Пассивный доход пока не рассчитывается", reply_markup=main_menu())
+            user_state.pop(user_id, None)
+            return
 
-    # --- Новый раздел: 📝 Пройти тест (инвест-цель) ---
-    elif message.text == "📝 Пройти тест":
-        user_goal[user_id] = {"step": 1}
-        await message.answer("Какова твоя цель? (например: машина, квартира, пассивный доход)")
+    # Выбор ежемесячной инвестиции
+    if user_state.get(user_id) == "goal_amount":
+        user_goal_data[user_id]["goal_amount"] = int(message.text.replace(" ₽","").replace(" ",""))
+        keyboard = ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="10 000 ₽"), KeyboardButton(text="20 000 ₽"), KeyboardButton(text="30 000 ₽")],
+                [KeyboardButton(text="⬅ Назад в меню")]
+            ],
+            resize_keyboard=True
+        )
+        user_state[user_id] = "monthly_invest"
+        await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=keyboard)
+        return
 
-    elif user_id in user_goal:
-        step = user_goal[user_id]["step"]
-
-        if step == 1:
-            user_goal[user_id]["item"] = message.text
-            user_goal[user_id]["step"] = 2
-            await message.answer("Какая стоимость вашей цели в ₽?")
-
-        elif step == 2:
-            if not message.text.replace("₽", "").replace(" ", "").isdigit():
-                await message.answer("Введите корректное число (стоимость цели в ₽).")
-                return
-            user_goal[user_id]["target"] = int(message.text.replace("₽", "").replace(" ", ""))
-            user_goal[user_id]["step"] = 3
-            await message.answer("Сколько вы готовы инвестировать в месяц (₽)?")
-
-        elif step == 3:
-            if not message.text.replace("₽", "").replace(" ", "").isdigit():
-                await message.answer("Введите корректное число (сумма в ₽).")
-                return
-            monthly_invest = int(message.text.replace("₽", "").replace(" ", ""))
-            target = user_goal[user_id]["target"]
-            item = user_goal[user_id]["item"]
-
-            result = calculate_investment(target, monthly_invest)
-            months_needed = result[-1][0]
-
-            text = (
-                f"С помощью нашего ИИ-бота, при ваших инвестициях {monthly_invest} ₽ в месяц,\n"
-                f"вы сможете достичь цели ({item}) стоимостью {target} ₽ примерно за {months_needed} месяцев.\n\n"
-                "📊 Подробный расчет по месяцам:" )
-
-            for m, bal in result:
-                text += f"\n{m}-й месяц: {bal:,.2f} ₽"
-
-            await message.answer(text, reply_markup=main_menu())
-            del user_goal[user_id]
-
-    elif message.text == "⬅ Назад в меню":
+    # Финальный расчёт
+    if user_state.get(user_id) == "monthly_invest":
+        user_goal_data[user_id]["monthly_invest"] = int(message.text.replace(" ₽","").replace(" ",""))
+        goal_amount = user_goal_data[user_id]["goal_amount"]
+        monthly_invest = user_goal_data[user_id]["monthly_invest"]
+        months = calculate_investment(goal_amount, monthly_invest)
+        years = months // 12
+        months_remain = months % 12
+        await message.answer(
+            f"С помощью нашего ИИ-бота, при ваших инвестициях {monthly_invest} ₽ в месяц, "
+            f"вы сможете купить {user_goal_data[user_id]['goal_type']} стоимостью {goal_amount} ₽ через {years} лет и {months_remain} месяцев.",
+            reply_markup=main_menu()
+        )
         user_state.pop(user_id, None)
-        user_progress.pop(user_id, None)
-        user_goal.pop(user_id, None)
-        await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+        user_goal_data.pop(user_id, None)
+        return
 
-    else:
-        await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
+    # Назад в меню
+    if message.text == "⬅ Назад в меню":
+        user_state.pop(user_id, None)
+        user_goal_data.pop(user_id, None)
+        await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+        return
+
+    # Любое другое сообщение
+    await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
 
 # Запуск бота
 async def main():
