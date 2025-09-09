@@ -6,7 +6,6 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 # Токен бота
 TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 
-# Создаем бота
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
@@ -20,17 +19,19 @@ def main_menu():
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# Расчёт инвестиций
-def calculate_investment(goal_amount, monthly_invest, annual_rate=135):
-    monthly_rate = annual_rate / 12 / 100
+# Расчёт инвестиций с помесячным выводом
+def calculate_investment_monthly(goal_amount, monthly_invest, annual_rate=135):
+    monthly_rate = annual_rate / 12 / 100  # 11,25% в месяц
     total = 0
     months = 0
+    history = []
     while total < goal_amount:
         total += monthly_invest
         profit = total * monthly_rate
         total += profit
         months += 1
-    return months
+        history.append((months, total))
+    return months, history
 
 # Обработка сообщений
 @dp.message()
@@ -99,14 +100,20 @@ async def handle_message(message: types.Message):
         user_goal_data[user_id]["monthly_invest"] = int(message.text.replace(" ₽","").replace(" ",""))
         goal_amount = user_goal_data[user_id]["goal_amount"]
         monthly_invest = user_goal_data[user_id]["monthly_invest"]
-        months = calculate_investment(goal_amount, monthly_invest)
-        years = months // 12
-        months_remain = months % 12
-        await message.answer(
-            f"С помощью нашего ИИ-бота, при ваших инвестициях {monthly_invest} ₽ в месяц, "
-            f"вы сможете купить {user_goal_data[user_id]['goal_type']} стоимостью {goal_amount} ₽ через {years} лет и {months_remain} месяцев.",
-            reply_markup=main_menu()
-        )
+
+        months, history = calculate_investment_monthly(goal_amount, monthly_invest)
+        # Сообщение по месяцам (показываем первые 12 месяцев + последние 3 месяца для краткости)
+        message_text = f"С помощью нашего ИИ-бота, при ваших инвестициях {monthly_invest} ₽ в месяц, " \
+                       f"вы сможете купить {user_goal_data[user_id]['goal_type']} стоимостью {goal_amount} ₽ через {months} месяцев.\n\n"
+        message_text += "Пример роста капитала по месяцам:\n"
+        for i, total in history[:12]:
+            message_text += f"Месяц {i}: {int(total)} ₽\n"
+        if months > 12:
+            message_text += "...\n"
+            for i, total in history[-3:]:
+                message_text += f"Месяц {i}: {int(total)} ₽\n"
+
+        await message.answer(message_text, reply_markup=main_menu())
         user_state.pop(user_id, None)
         user_goal_data.pop(user_id, None)
         return
