@@ -115,18 +115,8 @@ async def handle_message(message: types.Message):
     user_id = message.from_user.id
     text = message.text
 
-    # ← Здесь блок проверки меню
-    if text == "⬅ Назад в меню" or text == "Не готов":
-        # не выходим из шагов step1/step2
-        if user_state.get(user_id) not in ["step1", "step2"]:
-            user_state.pop(user_id, None)
-            user_data.pop(user_id, None)
-            user_progress.pop(user_id, None)
-            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-            return
-
-    # Общая картина
-    if message.text == "📊 Общая картина":
+    # --- Сначала обрабатываем конкретные команды меню ---
+    if text == "📊 Общая картина":
         user_state[user_id] = "step1"
         text1 = (
             "Чтобы увидеть всю финансовую картину целиком и полностью, нужно смотреть не только глазами, "
@@ -135,27 +125,25 @@ async def handle_message(message: types.Message):
             "И так таблицы, которые подсвечивают реальное положение дел:"
         )
         keyboard = ReplyKeyboardMarkup(
-            keyboard=[[
-                KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")
-            ]],
+            keyboard=[[KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]],
             resize_keyboard=True
         )
         await message.answer(text1, reply_markup=keyboard)
+        return
 
-    elif user_state.get(user_id) == "step1" and message.text == "Далее➡":
+    elif user_state.get(user_id) == "step1" and text == "Далее➡":
         user_state[user_id] = "step2"
         keyboard = ReplyKeyboardMarkup(
-            keyboard=[[
-                KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")
-            ]],
+            keyboard=[[KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]],
             resize_keyboard=True
         )
         await message.answer_photo(
             photo="AgACAgQAAxkBAAIM0Gi9LaXmP4pct66F2FEKUu0WAAF84gACqMoxG5bI6VHDQO5xqprkdwEAAwIAA3kAAzYE",
             reply_markup=keyboard
         )
+        return
 
-    elif user_state.get(user_id) == "step2" and message.text == "Далее➡":
+    elif user_state.get(user_id) == "step2" and text == "Далее➡":
         del user_state[user_id]
         text2 = (
             "Стоит отметить что таблица сделана на примерных цифрах (сейчас именно такие), "
@@ -167,6 +155,16 @@ async def handle_message(message: types.Message):
             "Вот почему так важно видеть всю картину целиком."
         )
         await message.answer(text2, reply_markup=main_menu())
+        return
+
+    elif text in ["⬅ Назад в меню", "Не готов"]:
+        # блок возврата в меню для всех остальных шагов
+        if user_state.get(user_id) not in ["step1", "step2"]:
+            user_state.pop(user_id, None)
+            user_data.pop(user_id, None)
+            user_progress.pop(user_id, None)
+            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+            return
 
     elif text == "📄 Просмотр договора оферты":
         file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
