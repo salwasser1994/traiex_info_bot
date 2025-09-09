@@ -1,20 +1,19 @@
-import logging
-from aiogram import Bot, Dispatcher, types
+import asyncio
+from aiogram import Bot, Dispatcher
+from aiogram.filters import Command
 from aiogram.types import Message
-from aiogram.utils import executor
 
-# вставь сюда токен своего бота
 API_TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 
-logging.basicConfig(level=logging.INFO)
-
 bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher()
 
-@dp.message_handler(commands=['getid'])
-async def send_chat_id(message: Message):
-    chat_id = message.chat.id
-    await message.reply(f"Chat ID: {chat_id}")
+@dp.message(Command("getid"))
+async def get_id(message: Message):
+    await message.answer(f"Chat ID: {message.chat.id}")
 
-if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True)
+async def main():
+    await dp.start_polling(bot)
+
+if __name__ == "__main__":
+    asyncio.run(main())
