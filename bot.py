@@ -431,31 +431,32 @@ async def helper_reply_handler(message: types.Message):
 # --- Ловим нажатия inline кнопок в группе ---
 @dp.callback_query()
 async def helper_inline_callback(callback: types.CallbackQuery):
-    # Проверяем, что кнопка пришла из нужной группы
     if callback.message.chat.id != -1003081706651:
-        return  # выходим, если не наша группа
+        return
 
-    # Проверяем, что это кнопка подтверждения
     if callback.data and callback.data.startswith("confirm_"):
-        msg_id = int(callback.data.split("_")[1])  # достаём message_id из callback_data
+        msg_id = int(callback.data.split("_")[1])
         user_id = invest_requests.get(msg_id)
 
         if user_id:
-            confirmer_name = callback.from_user.full_name  # имя того, кто нажал кнопку
+            confirmer_name = callback.from_user.full_name
 
             # Отправляем уведомление пользователю
             await bot.send_message(
                 chat_id=user_id,
-                text=f"✅ Ваш личный помощник {confirmer_name} нажал кнопку и подтвердил заявку."
+                text=f"✅ Ваш личный помощник {confirmer_name} подтвердил заявку."
             )
 
-            # Отправляем сообщение в группе, кто подтвердил заявку
+            # Сообщение в группе
             await callback.message.reply(f"✅ Заявка подтверждена пользователем {confirmer_name}")
 
-            # Меняем кнопку, чтобы она была неактивной
+            # Делаем кнопку неактивной
             await callback.message.edit_reply_markup(reply_markup=None)
 
-            # Подтверждаем в интерфейсе Telegram
+            # Удаляем из словаря
+            invest_requests.pop(msg_id, None)
+
+            # Подтверждаем интерфейс
             await callback.answer("📨 Пользователь уведомлён о подтверждении", show_alert=True)
 
 
