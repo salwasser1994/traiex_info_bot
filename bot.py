@@ -470,7 +470,7 @@ async def handle_callbacks(callback: types.CallbackQuery):
         now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
 
         # Отправляем пользователю сообщение с кнопкой для связи с помощником
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[[
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[[ 
             InlineKeyboardButton(
                 text=f"✉️ Написать помощнику {confirmer_name}",
                 url=f"https://t.me/{helper_username}" if helper_username else f"tg://user?id={helper_id}"
@@ -487,7 +487,14 @@ async def handle_callbacks(callback: types.CallbackQuery):
             reply_markup=keyboard
         )
 
-        # Сообщение в группе с полной информацией
+        # Сообщение в группе с полной информацией + кнопка "Написать инвестору"
+        keyboard_group = InlineKeyboardMarkup(inline_keyboard=[[ 
+            InlineKeyboardButton(
+                text=f"✉️ Написать инвестору {investor_name}",
+                url=f"https://t.me/{investor_username}" if investor_username else f"tg://user?id={user_id}"
+            )
+        ]])
+
         await callback.message.reply(
             f"✅ Заявка подтверждена!\n\n"
             f"📌 Инвестор:\n"
@@ -498,9 +505,9 @@ async def handle_callbacks(callback: types.CallbackQuery):
             f"👤 Имя: {confirmer_name}\n"
             f"🆔 Telegram ID: {helper_id}\n"
             f"💬 Username: @{helper_username if helper_username else 'нет'}\n\n"
-            f"⏰ Время подтверждения: {now}"
+            f"⏰ Время подтверждения: {now}",
+            reply_markup=keyboard_group
         )
-
 
         # Делаем кнопку неактивной
         await callback.message.edit_reply_markup(reply_markup=None)
