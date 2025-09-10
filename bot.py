@@ -132,12 +132,6 @@ async def cmd_start(message: types.Message):
     file_id = "BAACAgQAAxkDAAIEgGi5kTsunsNKCxSgT62lGkOro6iLAAI8KgACIJ7QUfgrP_Y9_DJKNgQ"
     await message.answer_video(video=file_id, reply_markup=inline_back_to_menu())
 
-@dp.callback_query()
-async def callbacks(callback: types.CallbackQuery):
-    if callback.data == "back_to_menu":
-        await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
-        await callback.answer()
-
 from aiogram import F
 
 # --- Все сообщения от пользователей в личке ---
@@ -430,18 +424,25 @@ async def helper_reply_handler(message: types.Message):
 
 # --- Ловим нажатия inline кнопок в группе ---
 @dp.callback_query()
-async def helper_inline_callback(callback: types.CallbackQuery):
-    if callback.message.chat.id != -1003081706651:
+async def handle_callbacks(callback: types.CallbackQuery):
+    # Кнопка "В меню"
+    if callback.data == "back_to_menu":
+        await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
+        await callback.answer()
         return
 
+    # Кнопка "Подтвердить заявку"
     if callback.data and callback.data.startswith("confirm_"):
+        if callback.message.chat.id != -1003081706651:
+            return
+
         msg_id = int(callback.data.split("_")[1])
         user_id = invest_requests.get(msg_id)
 
         if user_id:
             confirmer_name = callback.from_user.full_name
 
-            # Отправляем уведомление пользователю
+            # Уведомляем пользователя
             await bot.send_message(
                 chat_id=user_id,
                 text=f"✅ Ваш личный помощник {confirmer_name} подтвердил заявку."
@@ -458,6 +459,7 @@ async def helper_inline_callback(callback: types.CallbackQuery):
 
             # Подтверждаем интерфейс
             await callback.answer("📨 Пользователь уведомлён о подтверждении", show_alert=True)
+
 
 
 async def main():
