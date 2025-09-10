@@ -208,10 +208,49 @@ async def handle_message(message: types.Message):
         file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
         await message.answer_document(file_id)
         return
+
+    # --- НОВЫЙ КОД: кнопка "Готов инвестировать"
     elif text == "💰 Готов инвестировать":
-        await message.answer("https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex",
-        reply_markup=main_menu())
+        user = message.from_user
+
+        # Собираем максимум инфы о пользователе
+        user_info = (
+            f"🚨 Новый инвестор!\n\n"
+            f"👤 Имя: {user.full_name}\n"
+            f"🆔 Telegram ID: {user.id}\n"
+            f"💬 Username: @{user.username if user.username else 'нет'}\n"
+            f"🌍 Язык: {user.language_code}\n"
+        )
+
+        # Кнопка для прямого контакта (если есть username)
+        buttons = []
+        if user.username:
+            buttons.append([InlineKeyboardButton(
+                text="💬 Написать пользователю напрямую",
+                url=f"https://t.me/{user.username}"
+            )])
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
+
+        # Отправляем в группу сообщение о новом инвесторе
+        sent = await bot.send_message(
+            chat_id=-1003081706651,  # group chat id
+            text=user_info,
+            reply_markup=keyboard
+        )
+
+        # Отправляем пользователю сообщение-подтверждение
+        await message.answer(
+            "🎉 Поздравляю! С вами скоро свяжется ваш личный помощник, чтобы помочь вам.",
+            reply_markup=main_menu()
+        )
+
+        # Сохраняем ID заявки -> ID пользователя (для reply обработки)
+        bot['invest_requests'] = bot.get('invest_requests', {})
+        bot['invest_requests'][sent.message_id] = user.id
         return
+    # --- конец нового кода ---
+
     elif text == "Часто задаваемые вопросы❓":
         await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
         return
@@ -349,20 +388,34 @@ async def handle_message(message: types.Message):
         idx = user_progress[user_id]
         q = test_questions[idx]
         if text == q["correct"]:
-            await message.answer("✅ Правильно!")
-            idx+=1
-            if idx<len(test_questions):
-                user_progress[user_id]=idx
-                await send_test_question(message, idx)
+            user_progress[user_id]+=1
+            if user_progress[user_id]<len(test_questions):
+                await send_test_question(message,user_progress[user_id])
             else:
-                await message.answer("🎉 Тест завершён!", reply_markup=main_menu())
-                del user_progress[user_id]
-        elif text=="⬅ Назад в меню":
-            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-            del user_progress[user_id]
+                await message.answer("✅ Тест пройден! Вы поняли, что использование рычагов, таких как ИИ, "
+                                     "помогает быстрее достигать целей.", reply_markup=main_menu())
+                user_progress.pop(user_id)
+        else:
+            await message.answer("❌ Неверно. Попробуйте ещё раз.")
         return
 
-    await message.answer("Выберите действие из меню 👇", reply_markup=main_menu())
+    # Если ничего не подошло
+    await message.answer("Я вас не понял. Используйте меню 👇", reply_markup=main_menu())
+
+
+# --- НОВЫЙ КОД: ловим ответы помощников в группе ---
+@dp.message()
+async def helper_reply_handler(message: types.Message):
+    if message.chat.id == -1003081706651:  # группа
+        if message.reply_to_message and message.reply_to_message.from_user and message.reply_to_message.from_user.is_bot:
+            invest_requests = bot.get('invest_requests', {})
+            user_id = invest_requests.get(message.reply_to_message.message_id)
+
+            if user_id:
+                await bot.send_message(
+                    chat_id=user_id,
+                    text=f"📩 Вам написал помощник:\n\n{message.text}"
+                )
 
 
 async def main():
