@@ -237,7 +237,11 @@ async def handle_message(message: types.Message):
         await sent.edit_reply_markup(reply_markup=keyboard)
 
         # Исправлено: сохраняем правильный message_id
-        invest_requests[sent.message_id] = user.id
+        invest_requests[sent.message_id] = {
+            "user_id": user.id,
+            "full_name": user.full_name,
+            "username": user.username
+        }
 
         # Отправляем пользователю подтверждение
         await message.answer(
@@ -410,9 +414,12 @@ async def helper_reply_handler(message: types.Message):
         and message.reply_to_message.from_user
         and message.reply_to_message.from_user.is_bot
     ):
-        user_id = invest_requests.get(message.reply_to_message.message_id)
+        # Получаем данные инвестора из словаря
+        investor = invest_requests.get(message.reply_to_message.message_id)
 
-        if user_id:
+        if investor:
+            user_id = investor["user_id"]
+
             # Отправляем пользователю уведомление + текст помощника
             await bot.send_message(
                 chat_id=user_id,
@@ -421,8 +428,6 @@ async def helper_reply_handler(message: types.Message):
 
             # Уведомляем группу
             await message.reply("📨 Сообщение пользователю доставлено")
-
-import datetime
 
 import datetime
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -443,7 +448,14 @@ async def handle_callbacks(callback: types.CallbackQuery):
             return
 
         msg_id = int(callback.data.split("_")[1])
-        user_id = invest_requests.get(msg_id)
+        investor = invest_requests.get(msg_id)
+        if not investor:
+            await callback.answer("⚠️ Заявка уже обработана или не найдена", show_alert=True)
+            return
+
+        user_id = investor["user_id"]
+        investor_name = investor["full_name"]
+        investor_username = investor["username"]
 
         if not user_id:
             await callback.answer("⚠️ Заявка уже обработана или не найдена", show_alert=True)
@@ -480,14 +492,15 @@ async def handle_callbacks(callback: types.CallbackQuery):
             f"✅ Заявка подтверждена!\n\n"
             f"📌 Инвестор:\n"
             f"🆔 Telegram ID: {user_id}\n"
-            f"👤 Имя: не доступно через reply_to_message\n"
-            f"💬 Username: не доступно через reply_to_message\n\n"
+            f"👤 Имя: {investor_name}\n"
+            f"💬 Username: @{investor_username if investor_username else 'нет'}\n\n"
             f"📌 Помощник:\n"
             f"👤 Имя: {confirmer_name}\n"
             f"🆔 Telegram ID: {helper_id}\n"
             f"💬 Username: @{helper_username if helper_username else 'нет'}\n\n"
             f"⏰ Время подтверждения: {now}"
         )
+
 
         # Делаем кнопку неактивной
         await callback.message.edit_reply_markup(reply_markup=None)
