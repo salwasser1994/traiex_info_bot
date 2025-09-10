@@ -12,6 +12,8 @@ TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
+invest_requests = {}
+
 # FAQ
 faq_data = {
     "Сколько нужно денег, чтобы начать инвестировать?": """Минимальный вход составляет 150 USDT:
@@ -246,8 +248,7 @@ async def handle_message(message: types.Message):
         )
 
         # Сохраняем ID заявки -> ID пользователя (для reply обработки)
-        bot['invest_requests'] = bot.get('invest_requests', {})
-        bot['invest_requests'][sent.message_id] = user.id
+        invest_requests[sent.message_id] = user.id
         return
     # --- конец нового кода ---
 
@@ -408,7 +409,6 @@ async def handle_message(message: types.Message):
 async def helper_reply_handler(message: types.Message):
     if message.chat.id == -1003081706651:  # группа
         if message.reply_to_message and message.reply_to_message.from_user and message.reply_to_message.from_user.is_bot:
-            invest_requests = bot.get('invest_requests', {})
             user_id = invest_requests.get(message.reply_to_message.message_id)
 
             if user_id:
