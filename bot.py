@@ -435,15 +435,20 @@ async def helper_reply_handler(message: types.Message):
 # --- Ловим нажатия inline кнопок в группе ---
 @dp.callback_query(F.message.chat.id == -1003081706651)
 async def helper_inline_callback(callback: types.CallbackQuery):
-    user_id = invest_requests.get(callback.message.message_id)
-    if user_id:
-        # Отправляем пользователю уведомление
-        await bot.send_message(
-            chat_id=user_id,
-            text="✅ Ваш личный помощник нажал кнопку и подтвердил заявку."
-        )
-        # Подтверждаем в группе
-        await callback.answer("📨 Сообщение пользователю доставлено", show_alert=True)
+    # Проверяем, что это кнопка подтверждения
+    if callback.data and callback.data.startswith("confirm_"):
+        msg_id = int(callback.data.split("_")[1])  # достаём message_id из callback_data
+        user_id = invest_requests.get(msg_id)
+
+        if user_id:
+            # Отправляем пользователю уведомление
+            await bot.send_message(
+                chat_id=user_id,
+                text="✅ Ваш личный помощник нажал кнопку и подтвердил заявку."
+            )
+            # Подтверждаем в группе
+            await callback.answer("📨 Сообщение пользователю доставлено", show_alert=True)
+
 
 
 
