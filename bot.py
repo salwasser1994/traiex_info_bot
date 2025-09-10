@@ -13,6 +13,7 @@ bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
 invest_requests = {}
+already_invested = set()
 
 # FAQ
 faq_data = {
@@ -210,6 +211,18 @@ async def handle_message(message: types.Message):
 
     # --- НОВЫЙ КОД: кнопка "Готов инвестировать"
     elif text == "💰 Готов инвестировать":
+        user_id = message.from_user.id
+
+        if user_id in already_invested:
+            await message.answer(
+                "⚠️ Вы уже отправили заявку. Подождите, пока с вами свяжется помощник.",
+                reply_markup=main_menu()
+            )
+            return
+
+        # Если еще не отправлял — добавляем в множество
+        already_invested.add(user_id)
+
         user = message.from_user
         user_info = (
             f"🚨 Новый инвестор!\n\n"
