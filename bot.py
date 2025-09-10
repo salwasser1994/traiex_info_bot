@@ -429,8 +429,12 @@ async def helper_reply_handler(message: types.Message):
             await message.reply("📨 Сообщение пользователю доставлено")
 
 # --- Ловим нажатия inline кнопок в группе ---
-@dp.callback_query(F.message.chat.id == -1003081706651)
+@dp.callback_query()
 async def helper_inline_callback(callback: types.CallbackQuery):
+    # Проверяем, что кнопка пришла из нужной группы
+    if callback.message.chat.id != -1003081706651:
+        return  # выходим, если не наша группа
+
     # Проверяем, что это кнопка подтверждения
     if callback.data and callback.data.startswith("confirm_"):
         msg_id = int(callback.data.split("_")[1])  # достаём message_id из callback_data
@@ -449,12 +453,11 @@ async def helper_inline_callback(callback: types.CallbackQuery):
             await callback.message.reply(f"✅ Заявка подтверждена пользователем {confirmer_name}")
 
             # Меняем кнопку, чтобы она была неактивной
-            await callback.message.edit_reply_markup(
-                reply_markup=None
-            )
+            await callback.message.edit_reply_markup(reply_markup=None)
 
             # Подтверждаем в интерфейсе Telegram
             await callback.answer("📨 Пользователь уведомлён о подтверждении", show_alert=True)
+
 
 async def main():
     await dp.start_polling(bot)
