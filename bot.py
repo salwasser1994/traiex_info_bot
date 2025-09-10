@@ -441,11 +441,23 @@ async def handle_callbacks(callback: types.CallbackQuery):
 
         if user_id:
             confirmer_name = callback.from_user.full_name
+            helper_id = callback.from_user.id
+            helper_username = callback.from_user.username
 
-            # Уведомляем пользователя
+            # Формируем кнопку для перехода к помощнику
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(
+                    text=f"✉️ Написать помощнику {confirmer_name}",
+                    url=f"https://t.me/{helper_username}" if helper_username else f"tg://user?id={helper_id}"
+                )]
+            ])
+
+            # Отправляем пользователю сообщение с кнопкой
             await bot.send_message(
                 chat_id=user_id,
-                text=f"✅ Ваш личный помощник {confirmer_name} подтвердил заявку."
+                text=f"✅ Ваш личный помощник {confirmer_name} подтвердил заявку.\n\n"
+                     f"Вы можете написать ему напрямую:",
+                reply_markup=keyboard
             )
 
             # Сообщение в группе
