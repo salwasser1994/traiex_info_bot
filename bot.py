@@ -404,18 +404,25 @@ async def handle_message(message: types.Message):
     await message.answer("Я вас не понял. Используйте меню 👇", reply_markup=main_menu())
 
 
-# --- НОВЫЙ КОД: ловим ответы помощников в группе ---
+# --- Ловим ответы помощников в группе ---
 @dp.message()
 async def helper_reply_handler(message: types.Message):
-    if message.chat.id == -1003081706651:  # группа
+    # Проверяем, что сообщение из группы поддержки
+    if message.chat.id == -1003081706651:
+        # Проверяем, что это ответ на сообщение бота
         if message.reply_to_message and message.reply_to_message.from_user and message.reply_to_message.from_user.is_bot:
             user_id = invest_requests.get(message.reply_to_message.message_id)
 
             if user_id:
+                # Отправляем пользователю уведомление + сам текст помощника
                 await bot.send_message(
                     chat_id=user_id,
-                    text=f"📩 Вам написал помощник:\n\n{message.text}"
+                    text="✅ Ваш личный помощник ответил вам:\n\n" + message.text
                 )
+
+                # Также можно уведомить группу, что сообщение доставлено
+                await message.reply("📨 Сообщение пользователю доставлено")
+
 
 
 async def main():
