@@ -228,22 +228,24 @@ async def handle_message(message: types.Message):
             f"🌍 Язык: {user.language_code}\n"
         )
 
-        # Кнопка для прямого контакта (если есть username)
-        buttons = []
+        # Сначала отправляем сообщение в группу без кнопки
+        sent = await bot.send_message(
+            chat_id=-1003081706651,  # group chat id
+            text=user_info
+        )
+
+        # Если есть username, добавляем inline кнопку с callback_data
         if user.username:
             buttons = [[InlineKeyboardButton(
                 text="✅ Подтвердить заявку",
                 callback_data=f"confirm_{sent.message_id}"
-        )]]
-
-        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
-
-        # Отправляем в группу сообщение о новом инвесторе
-        sent = await bot.send_message(
-            chat_id=-1003081706651,  # group chat id
-            text=user_info,
-            reply_markup=keyboard
-        )
+            )]]
+            keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+            await bot.edit_message_reply_markup(
+                chat_id=-1003081706651,
+                message_id=sent.message_id,
+                reply_markup=keyboard
+            )
 
         # Отправляем пользователю сообщение-подтверждение
         await message.answer(
@@ -255,6 +257,7 @@ async def handle_message(message: types.Message):
         invest_requests[sent.message_id] = user.id
         return
     # --- конец нового кода ---
+
 
     elif text == "Часто задаваемые вопросы❓":
         await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
