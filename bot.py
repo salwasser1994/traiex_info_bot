@@ -422,6 +422,8 @@ async def helper_reply_handler(message: types.Message):
             # Уведомляем группу
             await message.reply("📨 Сообщение пользователю доставлено")
 
+import datetime
+
 # --- Ловим нажатия inline кнопок в группе ---
 @dp.callback_query()
 async def handle_callbacks(callback: types.CallbackQuery):
@@ -444,15 +446,16 @@ async def handle_callbacks(callback: types.CallbackQuery):
             helper_id = callback.from_user.id
             helper_username = callback.from_user.username
 
-            # Формируем кнопку для перехода к помощнику
+            # Время подтверждения
+            now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+            # Отправляем пользователю сообщение с кнопкой
             keyboard = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(
                     text=f"✉️ Написать помощнику {confirmer_name}",
                     url=f"https://t.me/{helper_username}" if helper_username else f"tg://user?id={helper_id}"
                 )]
             ])
-
-            # Отправляем пользователю сообщение с кнопкой
             await bot.send_message(
                 chat_id=user_id,
                 text=f"✅ Ваш личный помощник {confirmer_name} подтвердил заявку.\n\n"
@@ -460,17 +463,25 @@ async def handle_callbacks(callback: types.CallbackQuery):
                 reply_markup=keyboard
             )
 
-            # Сообщение в группе
-            await callback.message.reply(f"✅ Заявка подтверждена пользователем {confirmer_name}")
+            # Сообщение в группе с полной информацией
+            await callback.message.reply(
+                f"✅ Заявка подтверждена!\n\n"
+                f"📌 Инвестор:\n"
+                f"👤 Имя: {callback.message.reply_to_message.from_user.full_name}\n"
+                f"🆔 Telegram ID: {callback.message.reply_to_message.from_user.id}\n"
+                f"💬 Username: @{callback.message.reply_to_message.from_user.username if callback.message.reply_to_message.from_user.username else 'нет'}\n\n"
+                f"📌 Помощник:\n"
+                f"👤 Имя: {confirmer_name}\n"
+                f"🆔 Telegram ID: {helper_id}\n"
+                f"💬 Username: @{helper_username if helper_username else 'нет'}\n\n"
+                f"⏰ Время подтверждения: {now}"
+            )
 
             # Делаем кнопку неактивной
             await callback.message.edit_reply_markup(reply_markup=None)
 
             # Удаляем из словаря
             invest_requests.pop(msg_id, None)
-
-            # Подтверждаем интерфейс
-            await callback.answer("📨 Пользователь уведомлён о подтверждении", show_alert=True)
 
 
 
