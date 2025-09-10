@@ -231,10 +231,10 @@ async def handle_message(message: types.Message):
         # Кнопка для прямого контакта (если есть username)
         buttons = []
         if user.username:
-            buttons.append([InlineKeyboardButton(
-                text="💬 Написать пользователю напрямую",
-                url=f"https://t.me/{user.username}"
-            )])
+            buttons = [[InlineKeyboardButton(
+                text="✅ Подтвердить заявку",
+                callback_data=f"confirm_{sent.message_id}"
+        )]]
 
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons) if buttons else None
 
