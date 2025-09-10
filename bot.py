@@ -217,8 +217,6 @@ async def handle_message(message: types.Message):
     # --- НОВЫЙ КОД: кнопка "Готов инвестировать"
     elif text == "💰 Готов инвестировать":
         user = message.from_user
-
-        # Собираем максимум инфы о пользователе
         user_info = (
             f"🚨 Новый инвестор!\n\n"
             f"👤 Имя: {user.full_name}\n"
@@ -227,33 +225,31 @@ async def handle_message(message: types.Message):
             f"🌍 Язык: {user.language_code}\n"
         )
 
-        # Сначала отправляем сообщение в группу без кнопки
+        # Отправляем сообщение с кнопкой в группу помощников
         sent = await bot.send_message(
-            chat_id=-1003081706651,  # group chat id
+            chat_id=-1003081706651,
             text=user_info
         )
 
-        # Если есть username, добавляем inline кнопку с callback_data
-        if user.username:
-            buttons = [[InlineKeyboardButton(
+        # Создаем клавиатуру с правильным message_id
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
                 text="✅ Подтвердить заявку",
                 callback_data=f"confirm_{sent.message_id}"
-            )]]
-            keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-            await bot.edit_message_reply_markup(
-                chat_id=-1003081706651,
-                message_id=sent.message_id,
-                reply_markup=keyboard
-            )
+            )]
+        ])
 
-        # Отправляем пользователю сообщение-подтверждение
+        # Добавляем клавиатуру к уже отправленному сообщению
+        await sent.edit_reply_markup(reply_markup=keyboard)
+
+        # Исправлено: сохраняем правильный message_id
+        invest_requests[sent.message_id] = user.id
+
+        # Отправляем пользователю подтверждение
         await message.answer(
             "🎉 Поздравляю! С вами скоро свяжется ваш личный помощник, чтобы помочь вам.",
             reply_markup=main_menu()
         )
-
-        # Сохраняем ID заявки -> ID пользователя (для reply обработки)
-        invest_requests[sent.message_id] = user.id
         return
     # --- конец нового кода ---
 
