@@ -143,7 +143,6 @@ from aiogram import F
 # --- Все сообщения от пользователей в личке ---
 @dp.message(F.chat.id != -1003081706651)
 async def handle_message(message: types.Message):
-    ...
     user_id = message.from_user.id
     text = message.text
 
