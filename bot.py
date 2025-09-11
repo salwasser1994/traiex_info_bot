@@ -459,7 +459,6 @@ async def handle_callbacks(callback: types.CallbackQuery):
 
     # Кнопка "Подтвердить заявку"
     if callback.data and callback.data.startswith("confirm_"):
-        # Только для группы помощников
         if callback.message.chat.id != -1003081706651:
             return
 
@@ -473,26 +472,19 @@ async def handle_callbacks(callback: types.CallbackQuery):
         investor_name = investor["full_name"]
         investor_username = investor["username"]
 
-        if not user_id:
-            await callback.answer("⚠️ Заявка уже обработана или не найдена", show_alert=True)
-            return
-
-        # Информация о помощнике
         confirmer_name = callback.from_user.full_name
         helper_id = callback.from_user.id
         helper_username = callback.from_user.username
 
-        # Время подтверждения
         now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
 
-        # Отправляем пользователю сообщение с кнопкой для связи с помощником
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[[ 
+        # Сообщение пользователю
+        keyboard_user = InlineKeyboardMarkup(inline_keyboard=[[ 
             InlineKeyboardButton(
                 text=f"✉️ Написать помощнику {confirmer_name}",
                 url=f"https://t.me/{helper_username}" if helper_username else f"tg://user?id={helper_id}"
             )
         ]])
-
         await bot.send_message(
             chat_id=user_id,
             text=(
@@ -500,18 +492,26 @@ async def handle_callbacks(callback: types.CallbackQuery):
                 f"⏰ Время подтверждения: {now}\n\n"
                 "Вы можете написать ему напрямую:"
             ),
-            reply_markup=keyboard
+            reply_markup=keyboard_user
         )
 
-        # Сообщение в группе с полной информацией + кнопка "Написать инвестору"
-        keyboard_group = InlineKeyboardMarkup(inline_keyboard=[[ 
-            InlineKeyboardButton(
-                text=f"✉️ Написать инвестору {investor_name}",
-                url=f"https://t.me/{investor_username}" if investor_username else f"tg://user?id={user_id}"
-            )
-        ]])
+        # Сообщение в группе с кнопками "Написать инвестору" и "Подтвердить вложение"
+        keyboard_group = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"✉️ Написать инвестору {investor_name}",
+                    url=f"https://t.me/{investor_username}" if investor_username else f"tg://user?id={user_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="💵 Подтвердить вложение",
+                    callback_data=f"confirm_invest_{msg_id}"
+                )
+            ]
+        ])
 
-        await callback.message.reply(
+        group_msg = await callback.message.reply(
             f"✅ Заявка подтверждена!\n\n"
             f"📌 Инвестор:\n"
             f"🆔 Telegram ID: {user_id}\n"
@@ -525,11 +525,36 @@ async def handle_callbacks(callback: types.CallbackQuery):
             reply_markup=keyboard_group
         )
 
-        # Делаем кнопку неактивной
+        # Делаем кнопку "Подтвердить заявку" неактивной
         await callback.message.edit_reply_markup(reply_markup=None)
 
-        # Удаляем из словаря
+        # Сохраняем msg_id для подтверждения вложения
+        invest_requests[msg_id]["group_msg_id"] = group_msg.message_id
+
+        # Удаляем заявку из словаря
         invest_requests.pop(msg_id, None)
+        await callback.answer("Заявка подтверждена ✅")
+
+    # Кнопка "Подтвердить вложение"
+    elif callback.data and callback.data.startswith("confirm_invest_"):
+        if callback.message.chat.id != -1003081706651:
+            return
+
+        msg_id = int(callback.data.split("_")[2])
+        confirmer_name = callback.from_user.full_name
+        now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+        # Обновляем сообщение с подтверждением вложения
+        new_text = callback.message.text + f"\n\n💵 Вложение подтверждено {now} пользователем {confirmer_name} ✅"
+        await callback.message.edit_text(new_text, reply_markup=None)
+
+        # Автоматически закрепляем сообщение в группе
+        try:
+            await bot.pin_chat_message(chat_id=callback.message.chat.id, message_id=callback.message.message_id, disable_notification=True)
+        except Exception as e:
+            print("Ошибка закрепления:", e)
+
+        await callback.answer("Вложение подтверждено и сообщение закреплено ✅")
 
 async def main():
     await dp.start_polling(bot)
