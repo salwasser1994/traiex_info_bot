@@ -563,7 +563,7 @@ async def handle_callbacks(callback: types.CallbackQuery):
         await callback.message.edit_text(new_text_group, reply_markup=keyboard_group)
 
         # Сохраняем group_msg_id для дальнейших действий
-        invest_requests[msg_id]["group_msg_id"] = message_id
+        invest_requests[msg_id]["group_msg_id"] = callback.message.message_id
 
         await callback.answer("Заявка подтверждена ✅")
         return
