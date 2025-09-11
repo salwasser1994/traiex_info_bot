@@ -209,11 +209,14 @@ async def handle_message(message: types.Message):
         await message.answer_document(file_id)
         return
 
+    # список разработчиков, для которых нет ограничения
+    DEV_IDS = [5205381793, 987654321, 123456789] 
+
     # --- НОВЫЙ КОД: кнопка "Готов инвестировать"
     elif text == "💰 Готов инвестировать":
         user_id = message.from_user.id
 
-        if user_id in already_invested:
+        if user_id in already_invested and user_id not in DEV_IDS:
             await message.answer(
                 "⚠️ Вы уже отправили заявку. Подождите, пока с вами свяжется помощник.",
                 reply_markup=main_menu()
