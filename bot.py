@@ -235,29 +235,29 @@ async def handle_message(message: types.Message):
             f"🌍 Язык: {user.language_code}\n"
         )
 
-        # Отправляем сообщение с кнопкой в группу помощников
-        sent = await bot.send_message(
-            chat_id=-1003081706651,
-            text=user_info
-        )
-
-        # Создаем клавиатуру с правильным message_id
+        # Сразу создаем клавиатуру
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(
-                text="✅ Подтвердить заявку",
-                callback_data=f"confirm_{sent.message_id}"
-            )]
-        ])
+            text="✅ Подтвердить заявку",
+            callback_data="confirm_{}".format(user.id)  # лучше использовать user.id вместо message_id
+        )]
+    ])
 
-        # Добавляем клавиатуру к уже отправленному сообщению
-        await sent.edit_reply_markup(reply_markup=keyboard)
+    sent = await bot.send_message(
+        chat_id=-1003081706651,
+        text=user_info,
+        reply_markup=keyboard
+    )
 
-        # Исправлено: сохраняем правильный message_id
-        invest_requests[sent.message_id] = {
-            "user_id": user.id,
-            "full_name": user.full_name,
-            "username": user.username
-        }
+    # Сохраняем текст инвестора
+    invest_requests[user.id] = {
+        "user_id": user.id,
+        "full_name": user.full_name,
+        "username": user.username,
+        "text": user_info,
+        "group_msg_id": sent.message_id  # для подтверждения вложения
+    }
+
 
         # Отправляем пользователю подтверждение
         await message.answer(
@@ -451,46 +451,49 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 # --- Ловим нажатия inline кнопок в группе ---
 @dp.callback_query()
 async def handle_callbacks(callback: types.CallbackQuery):
-    # Кнопка "В меню"
-    if callback.data == "back_to_menu":
+    data = callback.data
+    chat_id = callback.message.chat.id
+    message_id = callback.message.message_id
+    user = callback.from_user
+
+    # --- Кнопка "В меню" ---
+    if data == "back_to_menu":
         await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
         await callback.answer()
         return
 
-    # Сначала проверяем вложение
-    if callback.data and callback.data.startswith("confirm_invest_"):
-        if callback.message.chat.id != -1003081706651:
+    # --- Подтверждение вложения ---
+    if data and data.startswith("confirm_invest_"):
+        if chat_id != -1003081706651:  # только группа помощников
             return
-
         try:
-            msg_id = int(callback.data.split("_")[2])
+            msg_id = int(data.split("_")[2])
         except (IndexError, ValueError):
             await callback.answer("Ошибка данных кнопки", show_alert=True)
             return
 
-        confirmer_name = callback.from_user.full_name
+        confirmer_name = user.full_name
         now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
 
-        # Обновляем сообщение с подтверждением вложения
+        # Обновляем текст сообщения
         new_text = callback.message.text + f"\n\n💵 Вложение подтверждено {now} пользователем {confirmer_name} ✅"
         await callback.message.edit_text(new_text, reply_markup=None)
 
-        # Автоматически закрепляем сообщение в группе
+        # Попытка закрепления сообщения
         try:
-            await bot.pin_chat_message(chat_id=callback.message.chat.id, message_id=callback.message.message_id, disable_notification=True)
+            await bot.pin_chat_message(chat_id=chat_id, message_id=message_id, disable_notification=True)
         except Exception as e:
             print("Ошибка закрепления:", e)
 
         await callback.answer("Вложение подтверждено и сообщение закреплено ✅")
         return
 
-    # Кнопка "✅ Подтвердить заявку"
-    if callback.data and callback.data.startswith("confirm_"):
-        if callback.message.chat.id != -1003081706651:
+    # --- Подтвердить заявку (кнопка "✅ Подтвердить заявку") ---
+    if data and data.startswith("confirm_"):
+        if chat_id != -1003081706651:
             return
-
         try:
-            msg_id = int(callback.data.split("_")[1])
+            msg_id = int(data.split("_")[1])
         except (IndexError, ValueError):
             await callback.answer("Ошибка данных кнопки", show_alert=True)
             return
@@ -503,31 +506,32 @@ async def handle_callbacks(callback: types.CallbackQuery):
         user_id = investor["user_id"]
         investor_name = investor["full_name"]
         investor_username = investor.get("username")
-        investor_text = investor.get("text", "")  # текст инвестора
+        investor_text = investor.get("text", "")
 
-        confirmer_name = callback.from_user.full_name
-        helper_id = callback.from_user.id
-        helper_username = callback.from_user.username
-
+        helper_name = user.full_name
+        helper_id = user.id
+        helper_username = user.username
         now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
 
-        # Сообщение пользователю
-        keyboard_user = InlineKeyboardMarkup(inline_keyboard=[[ 
+        # --- Сообщение инвестору ---
+        keyboard_user = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(
-                text=f"✉️ Написать помощнику {confirmer_name}",
+                text=f"✉️ Написать помощнику {helper_name}",
                 url=f"https://t.me/{helper_username}" if helper_username else f"tg://user?id={helper_id}"
             )
         ]])
         await bot.send_message(
             chat_id=user_id,
-            text=(f"✅ Ваш личный помощник {confirmer_name} подтвердил заявку!\n"
-                  f"⏰ Время подтверждения: {now}\n\n"
-                  "Вы можете написать ему напрямую:"),
+            text=(
+                f"✅ Ваш личный помощник {helper_name} подтвердил заявку!\n"
+                f"⏰ Время подтверждения: {now}\n\n"
+                "Вы можете написать ему напрямую:"
+            ),
             reply_markup=keyboard_user
         )
 
-        # Формируем единое сообщение в группе
-        new_text = (
+        # --- Сообщение в группе ---
+        new_text_group = (
             f"✅ Заявка подтверждена!\n\n"
             f"📌 Инвестор:\n"
             f"🆔 Telegram ID: {user_id}\n"
@@ -535,13 +539,12 @@ async def handle_callbacks(callback: types.CallbackQuery):
             f"💬 Username: @{investor_username if investor_username else 'нет'}\n"
             f"💬 Сообщение инвестора:\n{investor_text}\n\n"
             f"📌 Помощник:\n"
-            f"👤 Имя: {confirmer_name}\n"
+            f"👤 Имя: {helper_name}\n"
             f"🆔 Telegram ID: {helper_id}\n"
             f"💬 Username: @{helper_username if helper_username else 'нет'}\n\n"
             f"⏰ Время подтверждения: {now}"
         )
 
-        # Кнопки остаются в этом же сообщении
         keyboard_group = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(
@@ -557,13 +560,11 @@ async def handle_callbacks(callback: types.CallbackQuery):
             ]
         ])
 
-        # Редактируем сообщение инвестора в группе
-        await callback.message.edit_text(new_text, reply_markup=keyboard_group)
+        await callback.message.edit_text(new_text_group, reply_markup=keyboard_group)
 
-        # Сохраняем msg_id для подтверждения вложения
-        invest_requests[msg_id]["group_msg_id"] = callback.message.message_id
+        # Сохраняем group_msg_id для дальнейших действий
+        invest_requests[msg_id]["group_msg_id"] = message_id
 
-        # Удаляем заявку из словаря
         await callback.answer("Заявка подтверждена ✅")
         return
 
