@@ -213,7 +213,7 @@ async def handle_message(message: types.Message):
     DEV_IDS = [5205381793, 987654321, 123456789] 
 
     # --- НОВЫЙ КОД: кнопка "Готов инвестировать"
-    elif text == "💰 Готов инвестировать":
+    if text == "💰 Готов инвестировать":
         user_id = message.from_user.id
 
         if user_id in already_invested and user_id not in DEV_IDS:
