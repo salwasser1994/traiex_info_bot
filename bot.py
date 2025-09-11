@@ -457,12 +457,44 @@ async def handle_callbacks(callback: types.CallbackQuery):
         await callback.answer()
         return
 
+    # Сначала проверяем вложение, потом подтверждение заявки
+    if callback.data and callback.data.startswith("confirm_invest_"):
+        if callback.message.chat.id != -1003081706651:
+            return
+
+        try:
+            msg_id = int(callback.data.split("_")[2])
+        except (IndexError, ValueError):
+            await callback.answer("Ошибка данных кнопки", show_alert=True)
+            return
+
+        confirmer_name = callback.from_user.full_name
+        now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+        # Обновляем сообщение с подтверждением вложения
+        new_text = callback.message.text + f"\n\n💵 Вложение подтверждено {now} пользователем {confirmer_name} ✅"
+        await callback.message.edit_text(new_text, reply_markup=None)
+
+        # Автоматически закрепляем сообщение в группе
+        try:
+            await bot.pin_chat_message(chat_id=callback.message.chat.id, message_id=callback.message.message_id, disable_notification=True)
+        except Exception as e:
+            print("Ошибка закрепления:", e)
+
+        await callback.answer("Вложение подтверждено и сообщение закреплено ✅")
+        return
+
     # Кнопка "Подтвердить заявку"
     if callback.data and callback.data.startswith("confirm_"):
         if callback.message.chat.id != -1003081706651:
             return
 
-        msg_id = int(callback.data.split("_")[1])
+        try:
+            msg_id = int(callback.data.split("_")[1])
+        except (IndexError, ValueError):
+            await callback.answer("Ошибка данных кнопки", show_alert=True)
+            return
+
         investor = invest_requests.get(msg_id)
         if not investor:
             await callback.answer("⚠️ Заявка уже обработана или не найдена", show_alert=True)
@@ -487,11 +519,9 @@ async def handle_callbacks(callback: types.CallbackQuery):
         ]])
         await bot.send_message(
             chat_id=user_id,
-            text=(
-                f"✅ Ваш личный помощник {confirmer_name} подтвердил заявку!\n"
-                f"⏰ Время подтверждения: {now}\n\n"
-                "Вы можете написать ему напрямую:"
-            ),
+            text=(f"✅ Ваш личный помощник {confirmer_name} подтвердил заявку!\n"
+                  f"⏰ Время подтверждения: {now}\n\n"
+                  "Вы можете написать ему напрямую:"),
             reply_markup=keyboard_user
         )
 
@@ -534,27 +564,8 @@ async def handle_callbacks(callback: types.CallbackQuery):
         # Удаляем заявку из словаря
         invest_requests.pop(msg_id, None)
         await callback.answer("Заявка подтверждена ✅")
+        return
 
-    # Кнопка "Подтвердить вложение"
-    elif callback.data and callback.data.startswith("confirm_invest_"):
-        if callback.message.chat.id != -1003081706651:
-            return
-
-        msg_id = int(callback.data.split("_")[2])
-        confirmer_name = callback.from_user.full_name
-        now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-
-        # Обновляем сообщение с подтверждением вложения
-        new_text = callback.message.text + f"\n\n💵 Вложение подтверждено {now} пользователем {confirmer_name} ✅"
-        await callback.message.edit_text(new_text, reply_markup=None)
-
-        # Автоматически закрепляем сообщение в группе
-        try:
-            await bot.pin_chat_message(chat_id=callback.message.chat.id, message_id=callback.message.message_id, disable_notification=True)
-        except Exception as e:
-            print("Ошибка закрепления:", e)
-
-        await callback.answer("Вложение подтверждено и сообщение закреплено ✅")
 
 async def main():
     await dp.start_polling(bot)
