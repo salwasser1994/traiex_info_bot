@@ -484,7 +484,7 @@ async def handle_callbacks(callback: types.CallbackQuery):
         await callback.answer("Вложение подтверждено и сообщение закреплено ✅")
         return
 
-    # Кнопка "Подтвердить заявку"
+    # Кнопка "✅ Подтвердить заявку"
     if callback.data and callback.data.startswith("confirm_"):
         if callback.message.chat.id != -1003081706651:
             return
@@ -564,7 +564,6 @@ async def handle_callbacks(callback: types.CallbackQuery):
         invest_requests[msg_id]["group_msg_id"] = callback.message.message_id
 
         # Удаляем заявку из словаря
-        invest_requests.pop(msg_id, None)
         await callback.answer("Заявка подтверждена ✅")
         return
 
