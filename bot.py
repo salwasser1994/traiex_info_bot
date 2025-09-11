@@ -238,35 +238,33 @@ async def handle_message(message: types.Message):
         # Сразу создаем клавиатуру
         keyboard = InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(
-            text="✅ Подтвердить заявку",
-            callback_data="confirm_{}".format(user.id)  # лучше использовать user.id вместо message_id
-        )]
-    ])
+                text="✅ Подтвердить заявку",
+                callback_data="confirm_{}".format(user.id)  # лучше использовать user.id вместо message_id
+            )]
+        ])
 
-    sent = await bot.send_message(
-        chat_id=-1003081706651,
-        text=user_info,
-        reply_markup=keyboard
-    )
+        sent = await bot.send_message(
+            chat_id=-1003081706651,
+            text=user_info,
+            reply_markup=keyboard
+        )
 
-    # Сохраняем текст инвестора
-    invest_requests[user.id] = {
-        "user_id": user.id,
-        "full_name": user.full_name,
-        "username": user.username,
-        "text": user_info,
-        "group_msg_id": sent.message_id  # для подтверждения вложения
-    }
+        # Сохраняем текст инвестора
+        invest_requests[user.id] = {
+            "user_id": user.id,
+            "full_name": user.full_name,
+            "username": user.username,
+            "text": user_info,
+            "group_msg_id": sent.message_id  # для подтверждения вложения
+        }
 
 
-    # Отправляем пользователю подтверждение
-    await message.answer(
-        "🎉 Поздравляю! С вами скоро свяжется ваш личный помощник, чтобы помочь вам.",
-        reply_markup=main_menu()
-    )
-    return
-    # --- конец нового кода ---
-
+        # Отправляем пользователю подтверждение
+        await message.answer(
+            "🎉 Поздравляю! С вами скоро свяжется ваш личный помощник, чтобы помочь вам.",
+            reply_markup=main_menu()
+        )
+        return
 
     elif text == "Часто задаваемые вопросы❓":
         await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
