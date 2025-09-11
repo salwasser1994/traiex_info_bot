@@ -457,7 +457,7 @@ async def handle_callbacks(callback: types.CallbackQuery):
         await callback.answer()
         return
 
-    # Сначала проверяем вложение, потом подтверждение заявки
+    # Сначала проверяем вложение
     if callback.data and callback.data.startswith("confirm_invest_"):
         if callback.message.chat.id != -1003081706651:
             return
@@ -502,7 +502,8 @@ async def handle_callbacks(callback: types.CallbackQuery):
 
         user_id = investor["user_id"]
         investor_name = investor["full_name"]
-        investor_username = investor["username"]
+        investor_username = investor.get("username")
+        investor_text = investor.get("text", "")  # текст инвестора
 
         confirmer_name = callback.from_user.full_name
         helper_id = callback.from_user.id
@@ -525,7 +526,22 @@ async def handle_callbacks(callback: types.CallbackQuery):
             reply_markup=keyboard_user
         )
 
-        # Сообщение в группе с кнопками "Написать инвестору" и "Подтвердить вложение"
+        # Формируем единое сообщение в группе
+        new_text = (
+            f"✅ Заявка подтверждена!\n\n"
+            f"📌 Инвестор:\n"
+            f"🆔 Telegram ID: {user_id}\n"
+            f"👤 Имя: {investor_name}\n"
+            f"💬 Username: @{investor_username if investor_username else 'нет'}\n"
+            f"💬 Сообщение инвестора:\n{investor_text}\n\n"
+            f"📌 Помощник:\n"
+            f"👤 Имя: {confirmer_name}\n"
+            f"🆔 Telegram ID: {helper_id}\n"
+            f"💬 Username: @{helper_username if helper_username else 'нет'}\n\n"
+            f"⏰ Время подтверждения: {now}"
+        )
+
+        # Кнопки остаются в этом же сообщении
         keyboard_group = InlineKeyboardMarkup(inline_keyboard=[
             [
                 InlineKeyboardButton(
@@ -541,31 +557,16 @@ async def handle_callbacks(callback: types.CallbackQuery):
             ]
         ])
 
-        group_msg = await callback.message.reply(
-            f"✅ Заявка подтверждена!\n\n"
-            f"📌 Инвестор:\n"
-            f"🆔 Telegram ID: {user_id}\n"
-            f"👤 Имя: {investor_name}\n"
-            f"💬 Username: @{investor_username if investor_username else 'нет'}\n\n"
-            f"📌 Помощник:\n"
-            f"👤 Имя: {confirmer_name}\n"
-            f"🆔 Telegram ID: {helper_id}\n"
-            f"💬 Username: @{helper_username if helper_username else 'нет'}\n\n"
-            f"⏰ Время подтверждения: {now}",
-            reply_markup=keyboard_group
-        )
-
-        # Делаем кнопку "Подтвердить заявку" неактивной
-        await callback.message.edit_reply_markup(reply_markup=None)
+        # Редактируем сообщение инвестора в группе
+        await callback.message.edit_text(new_text, reply_markup=keyboard_group)
 
         # Сохраняем msg_id для подтверждения вложения
-        invest_requests[msg_id]["group_msg_id"] = group_msg.message_id
+        invest_requests[msg_id]["group_msg_id"] = callback.message.message_id
 
         # Удаляем заявку из словаря
         invest_requests.pop(msg_id, None)
         await callback.answer("Заявка подтверждена ✅")
         return
-
 
 async def main():
     await dp.start_polling(bot)
