@@ -1,573 +1,539 @@
+# bot_filter.py
 import asyncio
-from aiogram import Bot, Dispatcher, types
+import sqlite3
+import datetime
+import logging
+from typing import Optional
+
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
 from aiogram.types import (
     ReplyKeyboardMarkup, KeyboardButton,
-    InlineKeyboardMarkup, InlineKeyboardButton
+    InlineKeyboardMarkup, InlineKeyboardButton,
+    ReplyKeyboardRemove, Message, CallbackQuery
 )
 
+# ========== Настройка ==========
+# Поставь сюда токен и id группы помощников (chat id начинается с -100... обычно)
 TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
+HELPERS_CHAT_ID = -1003081706651  # <-- поменяй на свой ID группы помощников
 
+logging.basicConfig(level=logging.INFO)
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
+DB_PATH = "bot_filter.db"
 
-invest_requests = {}
-already_invested = set()
+# ========== Конфигурация бизнес-логики ==========
+MONTHLY_RATE = 0.09  # 9% в месяц (как в твоём коде)
+MIN_INVESTMENT = 150  # для примера (или можно убрать)
+ASSISTANT_NAME = "Алексей Финансович"  # имя «личности» бота
+ASSISTANT_LEGEND = (
+    "Привет! Меня зовут <b>{name}</b>. Я — твой финансовый помощник. "
+    "Я помог многим людям спланировать путь к их мечтам — от машины до пассивного дохода. "
+    "Расскажи, какая у тебя цель, и я быстро посчитаю ориентир."
+).format(name=ASSISTANT_NAME)
 
-# FAQ
-faq_data = {
-    "Сколько нужно денег, чтобы начать инвестировать?": """Минимальный вход составляет 150 USDT:
-- 50 USDT — стоимость подписки,
-- 100 USDT — рабочий депозит.""",
+# ========== Подготовка БД ==========
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            user_id INTEGER PRIMARY KEY,
+            first_name TEXT,
+            username TEXT,
+            language_code TEXT,
+            created_at TEXT
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            goal TEXT,
+            cost INTEGER,
+            monthly INTEGER,
+            contact TEXT,
+            status TEXT,
+            group_msg_id INTEGER,
+            created_at TEXT
+        )
+    """)
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS stats (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            step TEXT,
+            ts TEXT
+        )
+    """)
+    conn.commit()
+    conn.close()
 
-    "Какова доходность в месяц?": """Ориентировочная доходность — от 6% до 12% в месяц. 
-Показатели могут меняться в зависимости от результатов торговли.""",
+def save_user(user: types.User):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT OR IGNORE INTO users (user_id, first_name, username, language_code, created_at)
+        VALUES (?, ?, ?, ?, ?)
+    """, (user.id, user.first_name, user.username, user.language_code, datetime.datetime.utcnow().isoformat()))
+    conn.commit()
+    conn.close()
 
-    "Можно ли сразу снять депозит?": """Да, вывод возможен в любой момент, если отсутствуют форс-мажорные обстоятельства. 
-Перед началом работы рекомендуется ознакомиться с договором оферты.""",
+def save_stat(user_id: int, step: str):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("INSERT INTO stats (user_id, step, ts) VALUES (?, ?, ?)",
+                (user_id, step, datetime.datetime.utcnow().isoformat()))
+    conn.commit()
+    conn.close()
 
-    "Как зарегистрироваться?": "https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex",
+def create_request(user_id: int, goal: str, cost: Optional[int], monthly: Optional[int], contact: Optional[str]):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO requests (user_id, goal, cost, monthly, contact, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (user_id, goal, cost, monthly, contact, "new", datetime.datetime.utcnow().isoformat()))
+    req_id = cur.lastrowid
+    conn.commit()
+    conn.close()
+    return req_id
 
-    "Где посмотреть лицензию?": """Все документы и лицензии размещены на официальном сайте биржи: 
-https://www.traiex.com/ru/termsandconditions?anchor=1""",
+def update_request_group_msg(req_id: int, group_msg_id: int):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("UPDATE requests SET group_msg_id=?, status=? WHERE id=?", (group_msg_id, "sent", req_id))
+    conn.commit()
+    conn.close()
 
-    "Есть ли поддержка?": """Да, служба поддержки доступна и готова помочь: 
-https://traiex-help.freshdesk.com/support/home""",
+def get_request(req_id: int):
+    conn = sqlite3.connect(DB_PATH)
+    cur = conn.cursor()
+    cur.execute("SELECT id, user_id, goal, cost, monthly, contact, status, group_msg_id, created_at FROM requests WHERE id=?", (req_id,))
+    row = cur.fetchone()
+    conn.close()
+    return row
 
-    "Есть ли гарантии?": """Гарантированной прибыли нет. Если кто-то обещает стопроцентные гарантии, это должно вызвать вопросы. 
-Все условия подробно описаны в договоре оферты."""
-}
-
-# --- Тестовые вопросы ---
-test_questions = [
-    {"q": "Если подобрать длину рычага, можно ли поднять любой вес?",
-     "options": ["Конечно, точка опоры решает", "Нет, невозможно"],
-     "correct": "Конечно, точка опоры решает"},
-
-    {"q": "Как быстрее всего добраться от Владивостока до Москвы?",
-     "options": ["Самолёт", "Машина", "Поезд"],
-     "correct": "Самолёт"},
-
-    {"q": "Как поднять плиту на 10 этаж?",
-     "options": ["Кран-рычаг", "100 человек", "Вертолёт"],
-     "correct": "Кран-рычаг"},
-
-    {"q": "Есть ли рычаги в финансах?",
-     "options": ["Да, искусвенный интелект", "Сложный процент", "Не понимаю"],
-     "correct": "Да, искусвенный интелект"},
-
-    {"q": "Что такое ИИ в инвестициях?",
-     "options": ["Анализ данных, помощь", "Гарант прибыли"],
-     "correct": "Анализ данных, помощь"},
-
-    {"q": "Как ИИ помогает в анализе рынка?",
-     "options": ["Выявляет тренды, риски", "Заменяет человека"],
-     "correct": "Выявляет тренды, риски"},
-
-    {"q": "Роль ИИ в автоматизации торговли?",
-     "options": ["Автоприбыль", "Быстрое исполнение"],
-     "correct": "Быстрое исполнение"},
-
-    {"q": "Главный фактор при использовании ИИ?",
-     "options": ["Полностью довериться", "Контроль и корректировка"],
-     "correct": "Контроль и корректировка"},
-
-    {"q": "Можно ли считать ИИ рычагом в инвестициях?",
-     "options": ["Да, усиливает инвестора", "Нет, просто программа"],
-     "correct": "Да, усиливает инвестора"}
-]
-
-user_progress = {}
-user_state = {}
-user_data = {}
-
-goal_options = ["Машина", "Дом", "Пассивный доход"]
-cost_options = {
-    "Машина": ["100 000 ₽", "500 000 ₽", "1 000 000 ₽"],
-    "Дом": ["3 000 000 ₽", "5 000 000 ₽", "15 000 000 ₽"]
-}
-monthly_options = ["10 000 ₽", "20 000 ₽", "30 000 ₽"]
-
+# ========== Вспомогательные клавиатуры ==========
 def main_menu():
-    keyboard = [
-        [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
-        [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
-        [KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
-        [KeyboardButton(text="Часто задаваемые вопросы❓")]
-    ]
-    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+    kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🚀 Начать"), KeyboardButton(text="📘 FAQ")],
+            [KeyboardButton(text="📝 Пройти тест"), KeyboardButton(text="📈 Калькулятор цели")],
+            [KeyboardButton(text="💬 Связаться с помощником")]
+        ],
+        resize_keyboard=True
+    )
+    return kb
 
-def faq_menu():
-    keyboard = [[KeyboardButton(text="⬅ Назад в меню")]] + [[KeyboardButton(text=q)] for q in faq_data.keys()]
-    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+def goal_keyboard():
+    kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🚗 Машина"), KeyboardButton(text="🏡 Дом")],
+            [KeyboardButton(text="💸 Пассивный доход"), KeyboardButton(text="⬅ Назад")]
+        ],
+        resize_keyboard=True
+    )
+    return kb
 
-def start_test_menu():
-    keyboard = [[KeyboardButton(text="🚀 Начать тест")],[KeyboardButton(text="⬅ Назад в меню")]]
-    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+def cost_options_for(goal: str):
+    if goal == "Машина":
+        opts = ["100 000 ₽", "500 000 ₽", "1 000 000 ₽"]
+    elif goal == "Дом":
+        opts = ["3 000 000 ₽", "5 000 000 ₽", "15 000 000 ₽"]
+    else:
+        opts = ["100 000 ₽", "500 000 ₽", "1 000 000 ₽"]
+    kb = ReplyKeyboardMarkup(resize_keyboard=True)
+    for opt in opts:
+        kb.add(KeyboardButton(text=opt))
+    kb.add(KeyboardButton(text="⬅ Назад"))
+    return kb
 
-def option_keyboard(options):
-    kb = [[KeyboardButton(text=opt)] for opt in options]
-    kb.append([KeyboardButton(text="⬅ Назад в меню")])
-    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
+def monthly_keyboard():
+    kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="10 000 ₽"), KeyboardButton(text="20 000 ₽"), KeyboardButton(text="30 000 ₽")],
+            [KeyboardButton(text="⬅ Назад")]
+        ],
+        resize_keyboard=True
+    )
+    return kb
 
-def post_calc_menu():
-    keyboard = [
-        [KeyboardButton(text="💰 Готов инвестировать")],
-        [KeyboardButton(text="Не готов")],
-        [KeyboardButton(text="Пройти тест заново")]
-    ]
-    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
+def contact_keyboard_request():
+    kb = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📞 Отправить телефон", request_contact=True)],
+            [KeyboardButton(text="✉️ Отправить email (ввести текстом)"), KeyboardButton(text="Пропустить")],
+        ],
+        resize_keyboard=True
+    )
+    return kb
 
-async def send_test_question(message: types.Message, idx: int):
-    q = test_questions[idx]
-    keyboard = option_keyboard(q["options"])
-    await message.answer(q["q"], reply_markup=keyboard)
+def cta_inline_for_helpers(req_id: int):
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="✅ Подтвердить заявку", callback_data=f"confirm_{req_id}")],
+    ])
+    return kb
 
-def inline_back_to_menu():
-    keyboard = [[InlineKeyboardButton(text="В меню", callback_data="back_to_menu")]]
-    return InlineKeyboardMarkup(inline_keyboard=keyboard)
+# ========== Локальные состояния (в памяти) ==========
+# Небольшой стейт-мэп user_id -> state и временных данных
+user_state = {}  # example: {user_id: "expect_goal"}
+user_temp = {}   # example: {user_id: {"goal": "Дом", "cost": 500000, ...}}
 
+# ========== Утилиты расчёта ==========
+def parse_amount(text: str) -> Optional[int]:
+    # "1 000 000 ₽" -> 1000000
+    try:
+        cleaned = text.replace("₽", "").replace(" ", "").replace(",", "")
+        return int(cleaned)
+    except Exception:
+        return None
+
+def run_compound_calc(cost: int, monthly: int, monthly_rate: float = MONTHLY_RATE):
+    total = 0.0
+    month = 0
+    monthly_totals = []
+    while total < cost:
+        month += 1
+        total = (total + monthly) * (1 + monthly_rate)
+        monthly_totals.append(int(total))
+        # safety break
+        if month > 600: break
+    return month, monthly_totals
+
+def run_passive_calc(target_income: int, monthly: int, monthly_rate: float = MONTHLY_RATE):
+    capital = 0.0
+    month = 0
+    passive_list = []
+    while True:
+        month += 1
+        capital = (capital + monthly) * (1 + monthly_rate)
+        passive = capital * monthly_rate
+        passive_list.append(int(passive))
+        if passive >= target_income or month > 600:
+            break
+    return month, passive_list
+
+# ========== Хендлеры ==========
 @dp.message(Command("start"))
-async def cmd_start(message: types.Message):
-    file_id = "BAACAgQAAxkDAAIEgGi5kTsunsNKCxSgT62lGkOro6iLAAI8KgACIJ7QUfgrP_Y9_DJKNgQ"
-    await message.answer_video(video=file_id, reply_markup=inline_back_to_menu())
+async def cmd_start(message: Message):
+    save_user(message.from_user)
+    save_stat(message.from_user.id, "start")
+    user_temp.pop(message.from_user.id, None)
+    user_state[message.from_user.id] = "idle"
 
-from aiogram import F
+    text = f"👋 Привет, <b>{message.from_user.first_name}</b>!\n\n" \
+           f"{ASSISTANT_LEGEND}\n\n" \
+           "Небольшое замечание: я не продаю инвестиции — я помогаю находить лучшее предложение и перенаправляю тёплые заявки живым помощникам."
+    await message.answer(text, reply_markup=main_menu())
 
-# --- Все сообщения от пользователей в личке ---
-@dp.message(F.chat.id != -1003081706651)
-async def handle_message(message: types.Message):
-    user_id = message.from_user.id
-    text = message.text
+@dp.message(F.text == "🚀 Начать")
+async def start_flow(message: Message):
+    save_stat(message.from_user.id, "start_flow")
+    user_state[message.from_user.id] = "expect_goal"
+    user_temp[message.from_user.id] = {}
+    await message.answer(f"Отлично, {message.from_user.first_name}! Какая у тебя основная цель?", reply_markup=goal_keyboard())
 
-    # словари для родительного падежа и итоговой формулировки
-    goal_genitive = {
-        "Машина": "машины",
-        "Дом": "дома",
-        "Пассивный доход": "пассивного дохода"
+@dp.message(F.text == "📘 FAQ")
+async def faq(message: Message):
+    await message.answer(
+        "FAQ — коротко:\n\n"
+        "• Минимальный вход: 150 USDT (примерно по курсу). \n"
+        "• Доходность: ориентировочно 6–12% в месяц (вариативно).\n"
+        "• Гарантий прибыли нет — помогаем с платформой и рисками.\n\n"
+        "Если хочешь подробности — введи вопрос текстом или нажми 'Связаться с помощником'.",
+        reply_markup=main_menu()
+    )
+
+@dp.message(F.text == "📝 Пройти тест")
+async def start_test(message: Message):
+    # здесь можно добавить мини-тест — для простоты оставим приглашение
+    await message.answer("Тест пока отключен. Давай лучше просчитаем твою цель — нажми '🚀 Начать' чтобы вернуться.", reply_markup=main_menu())
+
+@dp.message(F.text == "💬 Связаться с помощником")
+async def contact_helper(message: Message):
+    # открываем диалог с живым помощником (в примере — отправляем ссылку на группу/профиль)
+    await message.answer(
+        "Ты можешь написать нашему командному чату или оставить заявку — нажми '🚀 Начать' и пройди быстрый расчёт, "
+        "чтобы мы передали тебе персонального помощника.",
+        reply_markup=main_menu()
+    )
+
+# ========== Обработка выбора цели ==========
+@dp.message(lambda message: user_state.get(message.from_user.id) == "expect_goal")
+async def handle_goal(message: Message):
+    text = message.text.strip()
+    if text == "⬅ Назад":
+        user_state[message.from_user.id] = "idle"
+        user_temp.pop(message.from_user.id, None)
+        await message.answer("Хорошо, давай начнём заново. Я рядом 👇", reply_markup=main_menu())
+        return
+
+    mapping = {
+        "🚗 Машина": "Машина",
+        "🏡 Дом": "Дом",
+        "💸 Пассивный доход": "Пассивный доход"
     }
-
-    goal_phrase = {
-        "Машина": "купить машину стоимостью",
-        "Дом": "купить дом стоимостью",
-        "Пассивный доход": "получать пассивный доход"
-    }
-
-    # --- Сначала обрабатываем конкретные команды меню ---
-    if text == "📊 Общая картина":
-        user_state[user_id] = "step1"
-        text1 = (
-            "Чтобы увидеть всю финансовую картину целиком и полностью, нужно смотреть не только глазами, "
-            "но и теми частями тела, которые выведут все необходимые цифры в таблицы, сделают сравнение "
-            "и конечно же сделают определенные выводы.\n\n"
-            "И так таблицы, которые подсвечивают реальное положение дел:"
-        )
-        keyboard = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]],
-            resize_keyboard=True
-        )
-        await message.answer(text1, reply_markup=keyboard)
+    if text not in mapping:
+        await message.answer("Пожалуйста, выбери одну из кнопок ниже 😊", reply_markup=goal_keyboard())
         return
 
-    elif user_state.get(user_id) == "step1" and text == "Далее➡":
-        user_state[user_id] = "step2"
-        keyboard = ReplyKeyboardMarkup(
-            keyboard=[[KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]],
-            resize_keyboard=True
-        )
-        await message.answer_photo(
-            photo="AgACAgQAAxkBAAIM0Gi9LaXmP4pct66F2FEKUu0WAAF84gACqMoxG5bI6VHDQO5xqprkdwEAAwIAA3kAAzYE",
-            reply_markup=keyboard
-        )
+    goal = mapping[text]
+    user_temp[message.from_user.id] = {"goal": goal}
+    user_state[message.from_user.id] = "expect_cost"
+    save_stat(message.from_user.id, f"chosen_goal:{goal}")
+
+    if goal in ["Машина", "Дом"]:
+        await message.answer(f"Понял тебя, {message.from_user.first_name}. Скажи, какая примерная стоимость { 'машины' if goal=='Машина' else 'дома' }?", reply_markup=cost_options_for(goal))
+    else:
+        # пассивный доход
+        await message.answer("Сколько в месяц ты хочешь получать пассивного дохода? Выбери один вариант:", reply_markup=cost_options_for(goal))
+
+# ========== Обработка выбора стоимости / дохода ==========
+@dp.message(lambda message: user_state.get(message.from_user.id) == "expect_cost")
+async def handle_cost(message: Message):
+    text = message.text.strip()
+    if text == "⬅ Назад":
+        user_state[message.from_user.id] = "expect_goal"
+        await message.answer("Вернулись назад. Выбери цель.", reply_markup=goal_keyboard())
         return
 
-    elif user_state.get(user_id) == "step2" and text == "Далее➡":
-        del user_state[user_id]
-        text2 = (
-            "Стоит отметить что таблица сделана на примерных цифрах (сейчас именно такие), "
-            "потому как ежедневная торговля имеет разную доходность, но основная мысль думаю понятна:\n\n"
-            "— если ничего не делать будет один результат\n"
-            "— если делать, но частично будет другой результат\n"
-            "— и если использовать всё что имеем (искусственный интеллект + сложный процент), "
-            "получим то что нам надо (за короткий срок приличные результаты)\n\n"
-            "Вот почему так важно видеть всю картину целиком."
-        )
-        await message.answer(text2, reply_markup=main_menu())
+    amount = parse_amount(text)
+    if amount is None:
+        await message.answer("Попробуй выбрать одну из кнопок, так будет быстро и точно 😊", reply_markup=cost_options_for(user_temp[message.from_user.id]["goal"]))
         return
 
-    elif text in ["⬅ Назад в меню", "Не готов"]:
-        if user_state.get(user_id) not in ["step1", "step2"]:
-            user_state.pop(user_id, None)
-            user_data.pop(user_id, None)
-            user_progress.pop(user_id, None)
-            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
-            return
+    user_temp[message.from_user.id]["cost"] = amount
+    user_state[message.from_user.id] = "expect_monthly"
+    save_stat(message.from_user.id, f"chosen_cost:{amount}")
 
-    elif text == "📄 Просмотр договора оферты":
-        file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
-        await message.answer_document(file_id)
+    await message.answer("Сколько ты готов инвестировать в месяц? Это поможет рассчитать реальный срок.", reply_markup=monthly_keyboard())
+
+# ========== Обработка выбора ежемесячной суммы ==========
+@dp.message(lambda message: user_state.get(message.from_user.id) == "expect_monthly")
+async def handle_monthly(message: Message):
+    text = message.text.strip()
+    if text == "⬅ Назад":
+        user_state[message.from_user.id] = "expect_cost"
+        await message.answer("Окей — вернулись к выбору стоимости.", reply_markup=cost_options_for(user_temp[message.from_user.id]["goal"]))
         return
 
-    # список разработчиков, для которых нет ограничения
-    DEV_IDS = [5205381793, 454141239, 1623272928] 
+    monthly = parse_amount(text)
+    if monthly is None:
+        await message.answer("Пожалуйста, выбери одну из кнопок ниже.", reply_markup=monthly_keyboard())
+        return
 
-    # --- НОВЫЙ КОД: кнопка "Готов инвестировать"
-    if text == "💰 Готов инвестировать":
-        user_id = message.from_user.id
+    user_temp[message.from_user.id]["monthly"] = monthly
+    goal = user_temp[message.from_user.id]["goal"]
+    cost = user_temp[message.from_user.id].get("cost")
+    save_stat(message.from_user.id, f"chosen_monthly:{monthly}")
 
-        if user_id in already_invested and user_id not in DEV_IDS:
-            await message.answer(
-                "⚠️ Вы уже отправили заявку. Подождите, пока с вами свяжется помощник.",
-                reply_markup=main_menu()
-            )
-            return
-
-        # Если еще не отправлял — добавляем в множество
-        already_invested.add(user_id)
-
-        user = message.from_user
-        user_info = (
-            f"🚨 Новый инвестор!\n\n"
-            f"👤 Имя: {user.full_name}\n"
-            f"🆔 Telegram ID: {user.id}\n"
-            f"💬 Username: @{user.username if user.username else 'нет'}\n"
-            f"🌍 Язык: {user.language_code}\n"
-        )
-
-        # Сразу создаем клавиатуру
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(
-                text="✅ Подтвердить заявку",
-                callback_data="confirm_{}".format(user.id)  # лучше использовать user.id вместо message_id
-            )]
-        ])
-
-        sent = await bot.send_message(
-            chat_id=-1003081706651,
-            text=user_info,
-            reply_markup=keyboard
-        )
-
-        # Сохраняем текст инвестора
-        invest_requests[user.id] = {
-            "user_id": user.id,
-            "full_name": user.full_name,
-            "username": user.username,
-            "text": user_info,
-            "group_msg_id": sent.message_id  # для подтверждения вложения
-        }
-
-
-        # Отправляем пользователю подтверждение
+    # Рассчитываем
+    if goal in ["Машина", "Дом"]:
+        months_needed, monthly_totals = run_compound_calc(cost, monthly)
+        # Персональное сообщение и эмпатия
+        await message.answer(f"Хорошо, {message.from_user.first_name}! Сейчас посчитаю... ⏳")
+        # Короткая «человеческая» нота
         await message.answer(
-            "🎉 Поздравляю! С вами скоро свяжется ваш личный помощник, чтобы помочь вам.",
-            reply_markup=main_menu()
+            f"📈 <b>Результат</b>:\n\n"
+            f"С инвестициями {monthly:,} ₽/мес ты сможешь { 'купить ' + goal.lower() if goal!='Пассивный доход' else '' } "
+            f"стоимостью {cost:,} ₽ примерно через <b>{months_needed}</b> месяцев.\n\n"
+            f"Честно: расчёт ориентировочный и принимает стабильную доходность ~9%/мес. Но это даёт представление о сроках. 🚀"
         )
-        return
-
-    elif text == "Часто задаваемые вопросы❓":
-        await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
-        return
-    elif text in faq_data:
-        await message.answer(faq_data[text])
-        return
-    elif text == "✨ Невозможное возможно благодаря рычагам":
-        await message.answer("📘 Инструкция:\n\nВыберите один правильный ответ на каждый вопрос.\n"
-                             "Помните, ИИ — это инструмент, а не волшебная палочка.", reply_markup=start_test_menu())
-        return
-    elif text == "🚀 Начать тест":
-        user_progress[user_id] = 0
-        await send_test_question(message, 0)
-        return
-
-    # --- Тест / инвестиции / пассивный доход ---
-    if text == "📝 Пройти тест":
-        user_state[user_id] = "choose_goal"
-        await message.answer("Какова твоя цель?", reply_markup=option_keyboard(goal_options))
-        return
-
-    # Выбор цели
-    if user_state.get(user_id) == "choose_goal":
-        if text in ["Машина", "Дом"]:
-            user_data[user_id] = {"goal": text}
-            user_state[user_id] = "choose_cost"
-            await message.answer(f"Какая стоимость {goal_genitive[text]}?", reply_markup=option_keyboard(cost_options[text]))
-        elif text == "Пассивный доход":
-            user_data[user_id] = {"goal": text}
-            user_state[user_id] = "choose_target_income"
-            await message.answer("Сколько в месяц вы хотите получать?", reply_markup=option_keyboard(["100 000 ₽","500 000 ₽","1 000 000 ₽"]))
-        else:
-            await message.answer("Пожалуйста, выберите одну из предложенных целей.")
-        return
-
-    # Машина / Дом — выбор стоимости
-    if user_state.get(user_id) == "choose_cost":
-        goal = user_data[user_id]["goal"]
-        if text in cost_options[goal]:
-            cost = int(text.replace(" ₽","").replace(" ",""))
-            user_data[user_id]["cost"] = cost
-            user_state[user_id] = "choose_monthly"
-            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=option_keyboard(monthly_options))
-        else:
-            await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
-        return
-
-    # Машина / Дом — расчет накоплений
-    if user_state.get(user_id) == "choose_monthly":
-        try:
-            monthly = int(text.replace(" ₽","").replace(" ",""))
-            user_data[user_id]["monthly"] = monthly
-            goal = user_data[user_id]["goal"]
-            cost = user_data[user_id]["cost"]
-            total = 0
-            month = 0
-            monthly_rate = 0.09
-            monthly_totals = []
-
-            while total < cost:
-                month += 1
-                total = (total + monthly)*(1+monthly_rate)
-                monthly_totals.append(total)
-
-            msg = "📈 Накопления по месяцам с учетом ежемесячного сложного процента 9% в среднем:\n\n"
-            for i,val in enumerate(monthly_totals,start=1):
-                if i<=3 or i>len(monthly_totals)-3:
-                    msg+=f"Месяц {i}: {int(val):,} ₽\n"
-                elif i==4:
-                    msg+="...\n"
-
-            msg+=f"\nС вашей ежемесячной инвестицией {monthly:,} ₽ вы сможете {goal_phrase[goal]} {cost:,} ₽ примерно через {month} месяцев.\n"
-            msg+="Важно: расчет учитывает сложный процент."
-
-            await message.answer(msg, reply_markup=post_calc_menu())
-            user_state.pop(user_id)
-        except:
-            await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
-        return
-
-    # Пассивный доход — выбор желаемого дохода
-    if user_state.get(user_id) == "choose_target_income":
-        if text in ["100 000 ₽","500 000 ₽","1 000 000 ₽"]:
-            target_income = int(text.replace(" ₽","").replace(" ",""))
-            user_data[user_id]["target_income"] = target_income
-            user_state[user_id] = "choose_monthly_passive"
-            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=option_keyboard(monthly_options))
-        else:
-            await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
-        return
-
-    # Пассивный доход — расчет
-    if user_state.get(user_id) == "choose_monthly_passive":
-        try:
-            monthly = int(text.replace(" ₽","").replace(" ",""))
-            user_data[user_id]["monthly"] = monthly
-            target_income = user_data[user_id]["target_income"]
-            month = 0
-            capital = 0
-            monthly_rate = 0.09
-            monthly_totals = []
-
-            while True:
-                month += 1
-                capital = (capital + monthly)*(1+monthly_rate)
-                passive = capital*monthly_rate
-                monthly_totals.append(passive)
-                if passive >= target_income:
-                    break
-
-            msg = "📈 Пассивный доход по месяцам:\n\n"
-            for i,pas in enumerate(monthly_totals,start=1):
-                if i<=3 or i>len(monthly_totals)-3:
-                    msg+=f"Месяц {i}: {int(pas):,} ₽\n"
-                elif i==4:
-                    msg+="...\n"
-
-            msg+=f"\nПри вашей ежемесячной инвестиции {monthly:,} ₽ вы сможете {goal_phrase['Пассивный доход']} {target_income:,} ₽/мес примерно через {month} месяцев.\n"
-            msg+="Важно: расчет учитывает сложный процент."
-
-            await message.answer(msg, reply_markup=post_calc_menu())
-            user_state.pop(user_id)
-        except:
-            await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
-        return
-
-    # Пройти тест заново
-    if text == "Пройти тест заново":
-        user_state[user_id] = "choose_goal"
-        await message.answer("Какова твоя цель?", reply_markup=option_keyboard(goal_options))
-        return
-
-    # Тест на ИИ
-    if user_id in user_progress:
-        idx = user_progress[user_id]
-        q = test_questions[idx]
-        if text == q["correct"]:
-            user_progress[user_id]+=1
-            if user_progress[user_id]<len(test_questions):
-                await send_test_question(message,user_progress[user_id])
-            else:
-                await message.answer("✅ Тест пройден! Вы поняли, что использование рычагов, таких как ИИ, "
-                                     "помогает быстрее достигать целей.", reply_markup=main_menu())
-                user_progress.pop(user_id)
-        else:
-            await message.answer("❌ Неверно. Попробуйте ещё раз.")
-        return
-
-    # Если ничего не подошло
-    await message.answer("Я вас не понял. Используйте меню 👇", reply_markup=main_menu())
-
-
-from aiogram import F
-
-# --- Ловим ответы помощников в группе ---
-@dp.message(F.chat.id == -1003081706651)
-async def helper_reply_handler(message: types.Message):
-    if (
-        message.reply_to_message
-        and message.reply_to_message.from_user
-        and message.reply_to_message.from_user.is_bot
-    ):
-        # Получаем данные инвестора из словаря
-        investor = invest_requests.get(message.reply_to_message.message_id)
-
-        if investor:
-            user_id = investor["user_id"]
-
-            # Отправляем пользователю уведомление + текст помощника
-            await bot.send_message(
-                chat_id=user_id,
-                text="✅ Ваш личный помощник ответил вам:\n\n" + (message.text or "")
-            )
-
-            # Уведомляем группу
-            await message.reply("📨 Сообщение пользователю доставлено")
-
-import datetime
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-
-# --- Ловим нажатия inline кнопок в группе ---
-@dp.callback_query()
-async def handle_callbacks(callback: types.CallbackQuery):
-    data = callback.data
-    chat_id = callback.message.chat.id
-    message_id = callback.message.message_id
-    user = callback.from_user
-
-    # --- Кнопка "В меню" ---
-    if data == "back_to_menu":
-        await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
-        await callback.answer()
-        return
-
-    # --- Подтверждение вложения ---
-    if data and data.startswith("confirm_invest_"):
-        if chat_id != -1003081706651:  # только группа помощников
-            return
-        try:
-            msg_id = int(data.split("_")[2])
-        except (IndexError, ValueError):
-            await callback.answer("Ошибка данных кнопки", show_alert=True)
-            return
-
-        confirmer_name = user.full_name
-        now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-
-        # Обновляем текст сообщения
-        new_text = callback.message.text + f"\n\n💵 Вложение подтверждено {now} пользователем {confirmer_name} ✅"
-        await callback.message.edit_text(new_text, reply_markup=None)
-
-        # Попытка закрепления сообщения
-        try:
-            await bot.pin_chat_message(chat_id=chat_id, message_id=message_id, disable_notification=True)
-        except Exception as e:
-            print("Ошибка закрепления:", e)
-
-        await callback.answer("Вложение подтверждено и сообщение закреплено ✅")
-        return
-
-    # --- Подтвердить заявку (кнопка "✅ Подтвердить заявку") ---
-    if data and data.startswith("confirm_"):
-        if chat_id != -1003081706651:
-            return
-        try:
-            msg_id = int(data.split("_")[1])
-        except (IndexError, ValueError):
-            await callback.answer("Ошибка данных кнопки", show_alert=True)
-            return
-
-        investor = invest_requests.get(msg_id)
-        if not investor:
-            await callback.answer("⚠️ Заявка уже обработана или не найдена", show_alert=True)
-            return
-
-        user_id = investor["user_id"]
-        investor_name = investor["full_name"]
-        investor_username = investor.get("username")
-        investor_text = investor.get("text", "")
-
-        helper_name = user.full_name
-        helper_id = user.id
-        helper_username = user.username
-        now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-
-        # --- Сообщение инвестору ---
-        keyboard_user = InlineKeyboardMarkup(inline_keyboard=[[
-            InlineKeyboardButton(
-                text=f"✉️ Написать помощнику {helper_name}",
-                url=f"https://t.me/{helper_username}" if helper_username else f"tg://user?id={helper_id}"
-            )
-        ]])
-        await bot.send_message(
-            chat_id=user_id,
-            text=(
-                f"✅ Ваш личный помощник {helper_name} подтвердил заявку!\n"
-                f"⏰ Время подтверждения: {now}\n\n"
-                "Вы можете написать ему напрямую:"
-            ),
-            reply_markup=keyboard_user
+    else:
+        target = cost  # for passive goal we stored desired monthly income in 'cost'
+        months_needed, passive_list = run_passive_calc(target, monthly)
+        await message.answer("Считаю возможный пассивный поток... ⏳")
+        await message.answer(
+            f"📈 <b>Результат</b>:\n\n"
+            f"При вложении {monthly:,} ₽/мес пассивный доход (проценты) приблизится к {target:,} ₽/мес через ≈ <b>{months_needed}</b> месяцев.\n\n"
+            "Если хочешь, могу передать твою заявку личному помощнику — он свяжется и подготовит персональный план."
         )
 
-        # --- Сообщение в группе ---
-        new_text_group = (
-            f"✅ Заявка подтверждена!\n\n"
-            f"📌 Инвестор:\n"
-            f"🆔 Telegram ID: {user_id}\n"
-            f"👤 Имя: {investor_name}\n"
-            f"💬 Username: @{investor_username if investor_username else 'нет'}\n"
-            f"💬 Сообщение инвестора:\n{investor_text}\n\n"
-            f"📌 Помощник:\n"
-            f"👤 Имя: {helper_name}\n"
-            f"🆔 Telegram ID: {helper_id}\n"
-            f"💬 Username: @{helper_username if helper_username else 'нет'}\n\n"
-            f"⏰ Время подтверждения: {now}"
-        )
-
-        keyboard_group = InlineKeyboardMarkup(inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=f"✉️ Написать инвестору {investor_name}",
-                    url=f"https://t.me/{investor_username}" if investor_username else f"tg://user?id={user_id}"
-                )
+    # Показать краткий прогресс + CTA
+    user_state[message.from_user.id] = "post_calc"
+    await message.answer(
+        "Хочешь, я передам это живому помощнику и он свяжется с тобой для подготовки персонального плана?",
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="✅ Да, свяжитесь со мной"), KeyboardButton(text="✍️ Написать сам (пропустить)")],
+                [KeyboardButton(text="⬅ Назад"), KeyboardButton(text="🏠 В главное меню")]
             ],
-            [
-                InlineKeyboardButton(
-                    text="💵 Подтвердить вложение",
-                    callback_data=f"confirm_invest_{msg_id}"
-                )
-            ]
+            resize_keyboard=True
+        )
+    )
+
+# ========== Пост-расчёт: подтверждение отправки заявки ==========
+@dp.message(lambda message: user_state.get(message.from_user.id) == "post_calc")
+async def post_calc_handler(message: Message):
+    text = message.text.strip()
+    if text == "⬅ Назад":
+        user_state[message.from_user.id] = "expect_monthly"
+        await message.answer("Вернулись к выбору ежемесячной суммы.", reply_markup=monthly_keyboard())
+        return
+    if text == "🏠 В главное меню":
+        user_state[message.from_user.id] = "idle"
+        user_temp.pop(message.from_user.id, None)
+        await message.answer("Хорошо, давай позже. Возвращайся когда будет удобно.", reply_markup=main_menu())
+        return
+    if text == "✍️ Написать сам (пропустить)":
+        user_state[message.from_user.id] = "idle"
+        user_temp.pop(message.from_user.id, None)
+        await message.answer("Окей — если передумаешь, нажми '🚀 Начать'.", reply_markup=main_menu())
+        return
+    if text == "✅ Да, свяжитесь со мной":
+        # Просим контакт (кнопка с запросом контакта) — либо пропустить
+        user_state[message.from_user.id] = "expect_contact"
+        await message.answer(
+            "Чтобы помощник мог связаться удобным способом, пришли контакт (телефон) — либо нажми 'Пропустить' и мы отправим только Telegram ID.",
+            reply_markup=contact_keyboard_request()
+        )
+        return
+    # если пользователь ввёл что-то ещё
+    await message.answer("Пожалуйста, выбери кнопку.", reply_markup=ReplyKeyboardMarkup(
+            keyboard=[
+                [KeyboardButton(text="✅ Да, свяжитесь со мной"), KeyboardButton(text="✍️ Написать сам (пропустить)")],
+                [KeyboardButton(text="⬅ Назад"), KeyboardButton(text="🏠 В главное меню")]
+            ],
+            resize_keyboard=True
+        ))
+
+# ========== Сбор контакта ==========
+@dp.message(lambda message: user_state.get(message.from_user.id) == "expect_contact" and message.contact)
+async def contact_via_request(message: Message):
+    # получили контакт через кнопку request_contact
+    phone = message.contact.phone_number
+    await finalize_and_send_request(message.from_user, contact=phone, message_obj=message)
+
+@dp.message(lambda message: user_state.get(message.from_user.id) == "expect_contact")
+async def contact_text_or_skip(message: Message):
+    text = message.text.strip()
+    if text == "Пропустить":
+        await finalize_and_send_request(message.from_user, contact=None, message_obj=message)
+        return
+    if text == "✉️ Отправить email (ввести текстом)":
+        await message.answer("Введи, пожалуйста, email в текстовом сообщении (например: info@you.ru).")
+        user_state[message.from_user.id] = "expect_contact_email"
+        return
+    if user_state.get(message.from_user.id) == "expect_contact_email" or ("@" in text and "." in text):
+        # простая проверка для email
+        await finalize_and_send_request(message.from_user, contact=text, message_obj=message)
+        return
+    await message.answer("Пожалуйста, используй кнопки выше или введи телефон/email вручную.", reply_markup=contact_keyboard_request())
+
+async def finalize_and_send_request(user: types.User, contact: Optional[str], message_obj: Message):
+    uid = user.id
+    temps = user_temp.get(uid, {})
+    goal = temps.get("goal")
+    cost = temps.get("cost")
+    monthly = temps.get("monthly")
+    # Сохраняем заявку в БД
+    req_id = create_request(uid, goal or "", cost or 0, monthly or 0, contact)
+    save_stat(uid, f"created_request:{req_id}")
+    # Формируем сообщение для группы помощников
+    username = f"@{user.username}" if user.username else "нет"
+    contact_info = contact if contact else "не указан (только Telegram)"
+    text = (
+        f"🚨 <b>Новый инвестор (лид)</b>\n\n"
+        f"👤 Имя: {user.full_name}\n"
+        f"🆔 ID: {uid}\n"
+        f"💬 Username: {username}\n"
+        f"🎯 Цель: {goal}\n"
+        f"💶 Стоимость/цель: {cost:,} ₽\n"
+        f"💸 Готов инвестировать в мес: {monthly:,} ₽\n"
+        f"📞 Контакт: {contact_info}\n"
+        f"🕒 Время: {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')} (UTC)\n\n"
+        "Нажмите кнопку ниже, чтобы подтвердить заявку и связаться с клиентом."
+    )
+    # Отправляем в группу помощников с кнопкой подтверждения
+    sent = await bot.send_message(chat_id=HELPERS_CHAT_ID, text=text, reply_markup=cta_inline_for_helpers(req_id))
+    # Обновляем запись в БД с id сообщения в группе
+    update_request_group_msg(req_id, sent.message_id)
+
+    # Отправляем пользователю дружелюбное подтверждение
+    await message_obj.answer(
+        f"Спасибо, {user.first_name}! Я передал(а) твою заявку живому помощнику. Как только кто-то подтвердит — ты получишь сообщение от него.\n\n"
+        "Пока можешь вернуться в главное меню.",
+        reply_markup=main_menu()
+    )
+    # Очистим temp и стейт
+    user_state.pop(uid, None)
+    user_temp.pop(uid, None)
+
+# ========== Обработка нажатий помощников в группе ==========
+@dp.callback_query()
+async def handle_callbacks(cb: CallbackQuery):
+    data = cb.data or ""
+    user = cb.from_user
+    chat_id = cb.message.chat.id if cb.message else None
+    # Обработка подтверждения заявки: callback_data = confirm_{req_id}
+    if data.startswith("confirm_"):
+        # только в группе помощников
+        if chat_id != HELPERS_CHAT_ID:
+            await cb.answer("Кнопка действительна только в группе помощников.", show_alert=True)
+            return
+        try:
+            req_id = int(data.split("_")[1])
+        except Exception:
+            await cb.answer("Неверные данные кнопки.", show_alert=True)
+            return
+        row = get_request(req_id)
+        if not row:
+            await cb.answer("Заявка не найдена или уже обработана.", show_alert=True)
+            return
+        # row: (id, user_id, goal, cost, monthly, contact, status, group_msg_id, created_at)
+        req_user_id = row[1]
+        helper_name = user.full_name
+        helper_username = f"@{user.username}" if user.username else None
+        now = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S (UTC)")
+
+        # Отправляем пользователю сообщение с контактом помощника
+        if helper_username:
+            helper_contact_url = f"https://t.me/{user.username}"
+        else:
+            helper_contact_url = f"tg://user?id={user.id}"
+
+        kb_user = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text=f"✉️ Написать помощнику {helper_name}", url=helper_contact_url)]
         ])
+        try:
+            await bot.send_message(chat_id=req_user_id,
+                                   text=f"✅ Твоя заявка подтверждена помощником {helper_name}.\n⏰ {now}\n\n"
+                                        "Нажми кнопку ниже, чтобы написать ему прямо в Telegram.",
+                                   reply_markup=kb_user)
+        except Exception as e:
+            logging.exception("Не удалось отправить пользователю сообщение: %s", e)
 
-        await callback.message.edit_text(new_text_group, reply_markup=keyboard_group)
+        # Обновляем сообщение в группе: добавляем информацию о том, кто подтвердил
+        new_text = cb.message.text + f"\n\n✅ Подтвержено {now} помощником {helper_name}"
+        try:
+            await cb.message.edit_text(new_text)
+        except Exception as e:
+            logging.exception("Не смог изменить сообщение в группе: %s", e)
 
-        # Сохраняем group_msg_id для дальнейших действий
-        invest_requests[msg_id]["group_msg_id"] = callback.message.message_id
-
-        await callback.answer("Заявка подтверждена ✅")
+        await cb.answer("Заявка подтверждена и пользователь уведомлён.")
+        # можно также обновить статус в БД (не обязательно)
+        conn = sqlite3.connect(DB_PATH)
+        cur = conn.cursor()
+        cur.execute("UPDATE requests SET status=? WHERE id=?", ("confirmed", req_id))
+        conn.commit()
+        conn.close()
         return
 
+# ========== Универсальный fallback ==========
+@dp.message()
+async def all_other_messages(message: Message):
+    # Если пользователь в середине воронки — обработка выше поймала бы.
+    # Тут — универсальное приветствие / помощь
+    await message.answer("Я тебя не совсем понял. Нажми '🚀 Начать' чтобы пройти быстрый расчёт или выбери из меню.", reply_markup=main_menu())
+
+# ========== Запуск ==========
 async def main():
+    init_db()
+    logging.info("Bot started")
     await dp.start_polling(bot)
 
-if __name__=="__main__":
+if __name__ == "__main__":
     asyncio.run(main())
