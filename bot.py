@@ -1,207 +1,571 @@
-import logging
 import asyncio
-from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram import Bot, Dispatcher, types
+from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.types import (
+    ReplyKeyboardMarkup, KeyboardButton,
+    InlineKeyboardMarkup, InlineKeyboardButton
+)
 
-logging.basicConfig(level=logging.INFO)
+TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 
-# === Конфиг ===
-BOT_TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
-ADMIN_ID = -1003081706651
-OFFER_PDF_FILE_ID = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
-
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
-user_data = {}
+invest_requests = {}
+already_invested = set()
 
-# === Приветствие ===
-@dp.message(Command("start"))
-async def cmd_start(message: Message):
-    user_data[message.from_user.id] = {"quiz_index":0,"quiz_score":0}
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Начать опрос 🚀", callback_data="start_survey")]
-    ])
-    await message.answer(
-        f"Привет, {message.from_user.first_name}! 👋\n\n"
-        "Давай узнаем твой уровень финансовой грамотности, твои цели и готовность инвестировать. "
-        "Это поможет нам дать тебе полезную информацию, секреты успеха и доступ к личному помощнику. "
-        "Ты также получишь доступ к приватной группе единомышленников.\n\n"
-        "Готов пройти опрос?",
-        reply_markup=kb
-    )
+# FAQ
+faq_data = {
+    "Сколько нужно денег, чтобы начать инвестировать?": """Минимальный вход составляет 150 USDT:
+- 50 USDT — стоимость подписки,
+- 100 USDT — рабочий депозит.""",
 
-# === Начало опроса ===
-@dp.callback_query(F.data=="start_survey")
-async def start_survey_handler(query: CallbackQuery):
-    await send_quiz_question(query.from_user.id, query.message)
+    "Какова доходность в месяц?": """Ориентировочная доходность — от 6% до 12% в месяц. 
+Показатели могут меняться в зависимости от результатов торговли.""",
 
-# === Вопросы по финансовой грамотности ===
-quiz_questions = [
-    {"question": "Что такое пассивный доход?", "options":["Деньги работают сами","Зарплата","Выигрыш в лотерею"], "correct":0},
-    {"question": "Что такое диверсификация?", "options":["Разные активы","Все в акции","Все в один актив"], "correct":0},
-    {"question": "Что такое инвестиционный риск?", "options":["Потеря части или всех вложений","Гарантированная прибыль","Нет риска"], "correct":0},
-    {"question": "Что повышает доходность?", "options":["Больше риска","Гарантия","Ничего"], "correct":0},
-    {"question": "Что обычно сопровождает высокую доходность?", "options":["Высокий риск","Гарантия","Малый риск"], "correct":0},
-    {"question": "Что такое ликвидность?", "options":["Скорость превращения в деньги","Доход","Риск"], "correct":0},
-    {"question": "Что такое капитал?", "options":["Накопленные средства","Долг","Зарплата"], "correct":0},
-    {"question": "Что такое инфляция?", "options":["Рост цен и падение покупательной способности","Рост дохода","Падение цен"], "correct":0},
-    {"question": "Что такое доходность?", "options":["Прибыль от инвестиций","Вклад в банк","Покупка акций"], "correct":0},
-    {"question": "Что такое резервный фонд?", "options":["Сбережения на черный день","Инвестиции в акции","Кредиты"], "correct":0}
+    "Можно ли сразу снять депозит?": """Да, вывод возможен в любой момент, если отсутствуют форс-мажорные обстоятельства. 
+Перед началом работы рекомендуется ознакомиться с договором оферты.""",
+
+    "Как зарегистрироваться?": "https://traiex.gitbook.io/user-guides/ru/kak-zaregistrirovatsya-na-traiex",
+
+    "Где посмотреть лицензию?": """Все документы и лицензии размещены на официальном сайте биржи: 
+https://www.traiex.com/ru/termsandconditions?anchor=1""",
+
+    "Есть ли поддержка?": """Да, служба поддержки доступна и готова помочь: 
+https://traiex-help.freshdesk.com/support/home""",
+
+    "Есть ли гарантии?": """Гарантированной прибыли нет. Если кто-то обещает стопроцентные гарантии, это должно вызвать вопросы. 
+Все условия подробно описаны в договоре оферты."""
+}
+
+# --- Тестовые вопросы ---
+test_questions = [
+    {"q": "Если подобрать длину рычага, можно ли поднять любой вес?",
+     "options": ["Конечно, точка опоры решает", "Нет, невозможно"],
+     "correct": "Конечно, точка опоры решает"},
+
+    {"q": "Как быстрее всего добраться до Москвы?",
+     "options": ["Самолёт", "Машина", "Поезд"],
+     "correct": "Самолёт"},
+
+    {"q": "Как поднять плиту на 10 этаж?",
+     "options": ["Кран-рычаг", "100 человек", "Вертолёт"],
+     "correct": "Кран-рычаг"},
+
+    {"q": "Есть ли рычаги в финансах?",
+     "options": ["Да, искусвенный интелект", "Сложный процент", "Не понимаю"],
+     "correct": "Да, искусвенный интелект"},
+
+    {"q": "Что такое ИИ в инвестициях?",
+     "options": ["Анализ данных, помощь", "Гарант прибыли"],
+     "correct": "Анализ данных, помощь"},
+
+    {"q": "Как ИИ помогает в анализе рынка?",
+     "options": ["Выявляет тренды, риски", "Заменяет человека"],
+     "correct": "Выявляет тренды, риски"},
+
+    {"q": "Роль ИИ в автоматизации торговли?",
+     "options": ["Автоприбыль", "Быстрое исполнение"],
+     "correct": "Быстрое исполнение"},
+
+    {"q": "Главный фактор при использовании ИИ?",
+     "options": ["Полностью довериться", "Контроль и корректировка"],
+     "correct": "Контроль и корректировка"},
+
+    {"q": "Можно ли считать ИИ рычагом в инвестициях?",
+     "options": ["Да, усиливает инвестора", "Нет, просто программа"],
+     "correct": "Да, усиливает инвестора"}
 ]
 
-# === Функция отправки вопроса ===
-async def send_quiz_question(user_id, message):
-    index = user_data[user_id]["quiz_index"]
-    if index < len(quiz_questions):
-        q = quiz_questions[index]
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text=opt, callback_data=f"quiz_{index}_{i}")] for i,opt in enumerate(q["options"])
-        ])
-        await message.edit_text(f"{q['question']}", reply_markup=kb)
-    else:
-        # После финграмоты спрашиваем цели
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="Пассивный доход 💸", callback_data="goal_passive")],
-            [InlineKeyboardButton(text="Дом 🏠", callback_data="goal_house")],
-            [InlineKeyboardButton(text="Машина 🚗", callback_data="goal_car")],
-            [InlineKeyboardButton(text="Приумножить капитал 📊", callback_data="goal_growth")]
-        ])
-        await message.edit_text("Какая твоя главная финансовая цель?", reply_markup=kb)
+user_progress = {}
+user_state = {}
+user_data = {}
 
-# === Обработка ответов на финграмоту ===
-@dp.callback_query(F.data.startswith("quiz_"))
-async def quiz_handler(query: CallbackQuery):
-    parts = query.data.split("_")
-    q_index, opt_index = int(parts[1]), int(parts[2])
-    if opt_index == quiz_questions[q_index]["correct"]:
-        user_data[query.from_user.id]["quiz_score"] += 1
-    user_data[query.from_user.id]["quiz_index"] += 1
-    await send_quiz_question(query.from_user.id, query.message)
+goal_options = ["Машина", "Дом", "Пассивный доход"]
+cost_options = {
+    "Машина": ["100 000 ₽", "500 000 ₽", "1 000 000 ₽"],
+    "Дом": ["3 000 000 ₽", "5 000 000 ₽", "15 000 000 ₽"]
+}
+monthly_options = ["10 000 ₽", "20 000 ₽", "30 000 ₽"]
 
-# === Цели ===
-@dp.callback_query(F.data.startswith("goal_"))
-async def goal_handler(query: CallbackQuery):
-    goal_map = {
-        "goal_passive": "Пассивный доход 💸",
-        "goal_house": "Дом 🏠",
-        "goal_car": "Машина 🚗",
-        "goal_growth": "Приумножить капитал 📊"
-    }
-    user_data[query.from_user.id]["goal"] = goal_map[query.data]
+def main_menu():
+    keyboard = [
+        [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
+        [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
+        [KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
+        [KeyboardButton(text="Часто задаваемые вопросы❓")]
+    ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-    sums_initial = ["10 000 ₽", "20 000 ₽", "30 000 ₽", "40 000 ₽", "50 000 ₽",
-                    "100 000 ₽", "250 000 ₽", "500 000 ₽", "1 000 000 ₽"]
-    keyboard_rows = []
-    for i in range(0, len(sums_initial), 3):
-        row = [InlineKeyboardButton(text=s, callback_data=f"initial_{s}") for s in sums_initial[i:i+3]]
-        keyboard_rows.append(row)
-    kb_initial = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
-    await query.message.edit_text("Сколько денег ты готов вложить первоначально?", reply_markup=kb_initial)
+def faq_menu():
+    keyboard = [[KeyboardButton(text="⬅ Назад в меню")]] + [[KeyboardButton(text=q)] for q in faq_data.keys()]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# === Первоначальный взнос ===
-@dp.callback_query(F.data.startswith("initial_"))
-async def initial_handler(query: CallbackQuery):
-    user_data[query.from_user.id]["initial_sum"] = query.data.replace("initial_","")
-    sums_monthly = ["0 ₽","10 000 ₽","20 000 ₽","30 000 ₽","40 000 ₽","50 000 ₽","100 000 ₽"]
-    keyboard_rows=[]
-    for i in range(0,len(sums_monthly),3):
-        row = [InlineKeyboardButton(text=s, callback_data=f"sum_{s}") for s in sums_monthly[i:i+3]]
-        keyboard_rows.append(row)
-    kb_monthly = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
-    await query.message.edit_text("Сколько денег готов вкладывать ежемесячно?", reply_markup=kb_monthly)
+def start_test_menu():
+    keyboard = [[KeyboardButton(text="🚀 Начать тест")],[KeyboardButton(text="⬅ Назад в меню")]]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# === Прогноз ===
-@dp.callback_query(F.data.startswith("sum_"))
-async def sum_handler(query: CallbackQuery):
-    user_data[query.from_user.id]["sum"] = query.data.replace("sum_","")
-    initial_sum = int(user_data[query.from_user.id]["initial_sum"].replace("₽","").replace(" ",""))
-    monthly_invest = int(user_data[query.from_user.id]["sum"].replace("₽","").replace(" ",""))
-    rate = 0.09
-    periods = [1,3,6,12,24]
-    balance = 0
-    forecast_text = f"💡 Прогноз Trading Bot при первоначальном взносе {initial_sum:,} ₽ и ежемесячном вложении {monthly_invest:,} ₽ (9%/мес)\n\n"
-    for month in periods:
-        invest = initial_sum if month==1 else monthly_invest
-        balance += invest
-        passive = balance * rate
-        balance += passive
-        forecast_text += f"Месяц {month}\n💵 Вложение в этом месяце: {invest:,} ₽\nПассивный доход: {int(passive):,} ₽\nБаланс: {int(balance):,} ₽\n\n"
-    kb_offer = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Ознакомиться с офертой 📄", callback_data="offer_read")]
-    ])
-    await query.message.edit_text(forecast_text, reply_markup=kb_offer)
+def option_keyboard(options):
+    kb = [[KeyboardButton(text=opt)] for opt in options]
+    kb.append([KeyboardButton(text="⬅ Назад в меню")])
+    return ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
 
-# === Оферта ===
-@dp.callback_query(F.data=="offer_read")
-async def offer_handler(query: CallbackQuery):
-    await bot.send_document(chat_id=query.from_user.id, document=OFFER_PDF_FILE_ID)
-    kb_accept = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Я согласен с офертой ✅", callback_data="offer_accept")]
-    ])
-    await query.message.answer("Прочитайте оферту и подтвердите согласие:", reply_markup=kb_accept)
+def post_calc_menu():
+    keyboard = [
+        [KeyboardButton(text="💰 Готов инвестировать")],
+        [KeyboardButton(text="Не готов")],
+        [KeyboardButton(text="Пройти тест заново")]
+    ]
+    return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
-# === Согласие и выбор контакта ===
-@dp.callback_query(F.data=="offer_accept")
-async def offer_accept_handler(query: CallbackQuery):
-    kb_contact = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Телеграм", callback_data="contact_telegram")],
-        [InlineKeyboardButton(text="Email", callback_data="contact_email")],
-        [InlineKeyboardButton(text="Телефон", callback_data="contact_phone")],
-        [InlineKeyboardButton(text="Другое", callback_data="contact_other")]
-    ])
-    await query.message.answer("Выберите, как вам удобнее связаться с личным помощником:", reply_markup=kb_contact)
+async def send_test_question(message: types.Message, idx: int):
+    q = test_questions[idx]
+    keyboard = option_keyboard(q["options"])
+    await message.answer(q["q"], reply_markup=keyboard)
 
-# === Контакты и проверка username ===
-@dp.callback_query(F.data.startswith("contact_"))
-async def contact_method_handler(query: CallbackQuery):
-    method = query.data.replace("contact_","")
-    user_data[query.from_user.id]["contact_method"] = method
-    if method=="telegram":
-        await query.message.answer("Пожалуйста, укажите ваш @username для связи через Telegram:")
-    else:
-        await query.message.answer("Напишите, как с вами лучше связаться:")
+def inline_back_to_menu():
+    keyboard = [[InlineKeyboardButton(text="В меню", callback_data="back_to_menu")]]
+    return InlineKeyboardMarkup(inline_keyboard=keyboard)
 
-@dp.message()
-async def capture_contact_info(message: Message):
+@dp.message(Command("start"))
+async def cmd_start(message: types.Message):
+    file_id = "BAACAgQAAxkDAAIEgGi5kTsunsNKCxSgT62lGkOro6iLAAI8KgACIJ7QUfgrP_Y9_DJKNgQ"
+    await message.answer_video(video=file_id, reply_markup=inline_back_to_menu())
+
+from aiogram import F
+
+# --- Все сообщения от пользователей в личке ---
+@dp.message(F.chat.id != -1003081706651)
+async def handle_message(message: types.Message):
     user_id = message.from_user.id
-    if user_id not in user_data: return
-    contact_method = user_data[user_id].get("contact_method")
-    if contact_method=="telegram":
-        username = message.text.strip()
-        if not username.startswith("@"):
-            await message.answer("Неверный формат. Укажите ваш @username.")
+    text = message.text
+
+    # словари для родительного падежа и итоговой формулировки
+    goal_genitive = {
+        "Машина": "машины",
+        "Дом": "дома",
+        "Пассивный доход": "пассивного дохода"
+    }
+
+    goal_phrase = {
+        "Машина": "купить машину стоимостью",
+        "Дом": "купить дом стоимостью",
+        "Пассивный доход": "получать пассивный доход"
+    }
+
+    # --- Сначала обрабатываем конкретные команды меню ---
+    if text == "📊 Общая картина":
+        user_state[user_id] = "step1"
+        text1 = (
+            "Чтобы увидеть всю финансовую картину целиком и полностью, нужно смотреть не только глазами, "
+            "но и теми частями тела, которые выведут все необходимые цифры в таблицы, сделают сравнение "
+            "и конечно же сделают определенные выводы.\n\n"
+            "И так таблицы, которые подсвечивают реальное положение дел:"
+        )
+        keyboard = ReplyKeyboardMarkup(
+            keyboard=[[KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]],
+            resize_keyboard=True
+        )
+        await message.answer(text1, reply_markup=keyboard)
+        return
+
+    elif user_state.get(user_id) == "step1" and text == "Далее➡":
+        user_state[user_id] = "step2"
+        keyboard = ReplyKeyboardMarkup(
+            keyboard=[[KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]],
+            resize_keyboard=True
+        )
+        await message.answer_photo(
+            photo="AgACAgQAAxkBAAIM0Gi9LaXmP4pct66F2FEKUu0WAAF84gACqMoxG5bI6VHDQO5xqprkdwEAAwIAA3kAAzYE",
+            reply_markup=keyboard
+        )
+        return
+
+    elif user_state.get(user_id) == "step2" and text == "Далее➡":
+        del user_state[user_id]
+        text2 = (
+            "Стоит отметить что таблица сделана на примерных цифрах (сейчас именно такие), "
+            "потому как ежедневная торговля имеет разную доходность, но основная мысль думаю понятна:\n\n"
+            "— если ничего не делать будет один результат\n"
+            "— если делать, но частично будет другой результат\n"
+            "— и если использовать всё что имеем (искусственный интеллект + сложный процент), "
+            "получим то что нам надо (за короткий срок приличные результаты)\n\n"
+            "Вот почему так важно видеть всю картину целиком."
+        )
+        await message.answer(text2, reply_markup=main_menu())
+        return
+
+    elif text in ["⬅ Назад в меню", "Не готов"]:
+        if user_state.get(user_id) not in ["step1", "step2"]:
+            user_state.pop(user_id, None)
+            user_data.pop(user_id, None)
+            user_progress.pop(user_id, None)
+            await message.answer("Вы вернулись в главное меню 👇", reply_markup=main_menu())
+            return
+
+    elif text == "📄 Просмотр договора оферты":
+        file_id = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
+        await message.answer_document(file_id)
+        return
+
+    # список разработчиков, для которых нет ограничения
+    DEV_IDS = [5205381793, 454141239, 1623272928] 
+
+    # --- НОВЫЙ КОД: кнопка "Готов инвестировать"
+    if text == "💰 Готов инвестировать":
+        user_id = message.from_user.id
+
+        if user_id in already_invested and user_id not in DEV_IDS:
+            await message.answer(
+                "⚠️ Вы уже отправили заявку. Подождите, пока с вами свяжется помощник.",
+                reply_markup=main_menu()
+            )
+            return
+
+        # Если еще не отправлял — добавляем в множество
+        already_invested.add(user_id)
+
+        user = message.from_user
+        user_info = (
+            f"🚨 Новый инвестор!\n\n"
+            f"👤 Имя: {user.full_name}\n"
+            f"🆔 Telegram ID: {user.id}\n"
+            f"💬 Username: @{user.username if user.username else 'нет'}\n"
+            f"🌍 Язык: {user.language_code}\n"
+        )
+
+        # Сразу создаем клавиатуру
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(
+                text="✅ Подтвердить заявку",
+                callback_data="confirm_{}".format(user.id)  # лучше использовать user.id вместо message_id
+            )]
+        ])
+
+        sent = await bot.send_message(
+            chat_id=-1003081706651,
+            text=user_info,
+            reply_markup=keyboard
+        )
+
+        # Сохраняем текст инвестора
+        invest_requests[user.id] = {
+            "user_id": user.id,
+            "full_name": user.full_name,
+            "username": user.username,
+            "text": user_info,
+            "group_msg_id": sent.message_id  # для подтверждения вложения
+        }
+
+
+        # Отправляем пользователю подтверждение
+        await message.answer(
+            "🎉 Поздравляю! С вами скоро свяжется ваш личный помощник, чтобы помочь вам.",
+            reply_markup=main_menu()
+        )
+        return
+
+    elif text == "Часто задаваемые вопросы❓":
+        await message.answer("Выберите интересующий вопрос:", reply_markup=faq_menu())
+        return
+    elif text in faq_data:
+        await message.answer(faq_data[text])
+        return
+    elif text == "✨ Невозможное возможно благодаря рычагам":
+        await message.answer("📘 Инструкция:\n\nВыберите один правильный ответ на каждый вопрос.\n"
+                             "Помните, ИИ — это инструмент, а не волшебная палочка.", reply_markup=start_test_menu())
+        return
+    elif text == "🚀 Начать тест":
+        user_progress[user_id] = 0
+        await send_test_question(message, 0)
+        return
+
+    # --- Тест / инвестиции / пассивный доход ---
+    if text == "📝 Пройти тест":
+        user_state[user_id] = "choose_goal"
+        await message.answer("Какова твоя цель?", reply_markup=option_keyboard(goal_options))
+        return
+
+    # Выбор цели
+    if user_state.get(user_id) == "choose_goal":
+        if text in ["Машина", "Дом"]:
+            user_data[user_id] = {"goal": text}
+            user_state[user_id] = "choose_cost"
+            await message.answer(f"Какая стоимость {goal_genitive[text]}?", reply_markup=option_keyboard(cost_options[text]))
+        elif text == "Пассивный доход":
+            user_data[user_id] = {"goal": text}
+            user_state[user_id] = "choose_target_income"
+            await message.answer("Сколько в месяц вы хотите получать?", reply_markup=option_keyboard(["100 000 ₽","500 000 ₽","1 000 000 ₽"]))
+        else:
+            await message.answer("Пожалуйста, выберите одну из предложенных целей.")
+        return
+
+    # Машина / Дом — выбор стоимости
+    if user_state.get(user_id) == "choose_cost":
+        goal = user_data[user_id]["goal"]
+        if text in cost_options[goal]:
+            cost = int(text.replace(" ₽","").replace(" ",""))
+            user_data[user_id]["cost"] = cost
+            user_state[user_id] = "choose_monthly"
+            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=option_keyboard(monthly_options))
+        else:
+            await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
+        return
+
+    # Машина / Дом — расчет накоплений
+    if user_state.get(user_id) == "choose_monthly":
+        try:
+            monthly = int(text.replace(" ₽","").replace(" ",""))
+            user_data[user_id]["monthly"] = monthly
+            goal = user_data[user_id]["goal"]
+            cost = user_data[user_id]["cost"]
+            total = 0
+            month = 0
+            monthly_rate = 0.09
+            monthly_totals = []
+
+            while total < cost:
+                month += 1
+                total = (total + monthly)*(1+monthly_rate)
+                monthly_totals.append(total)
+
+            msg = "📈 Накопления по месяцам с учетом ежемесячного сложного процента 9% в среднем:\n\n"
+            for i,val in enumerate(monthly_totals,start=1):
+                if i<=3 or i>len(monthly_totals)-3:
+                    msg+=f"Месяц {i}: {int(val):,} ₽\n"
+                elif i==4:
+                    msg+="...\n"
+
+            msg+=f"\nС вашей ежемесячной инвестицией {monthly:,} ₽ вы сможете {goal_phrase[goal]} {cost:,} ₽ примерно через {month} месяцев.\n"
+            msg+="Важно: расчет учитывает сложный процент."
+
+            await message.answer(msg, reply_markup=post_calc_menu())
+            user_state.pop(user_id)
+        except:
+            await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
+        return
+
+    # Пассивный доход — выбор желаемого дохода
+    if user_state.get(user_id) == "choose_target_income":
+        if text in ["100 000 ₽","500 000 ₽","1 000 000 ₽"]:
+            target_income = int(text.replace(" ₽","").replace(" ",""))
+            user_data[user_id]["target_income"] = target_income
+            user_state[user_id] = "choose_monthly_passive"
+            await message.answer("Сколько вы готовы инвестировать в месяц?", reply_markup=option_keyboard(monthly_options))
+        else:
+            await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
+        return
+
+    # Пассивный доход — расчет
+    if user_state.get(user_id) == "choose_monthly_passive":
+        try:
+            monthly = int(text.replace(" ₽","").replace(" ",""))
+            user_data[user_id]["monthly"] = monthly
+            target_income = user_data[user_id]["target_income"]
+            month = 0
+            capital = 0
+            monthly_rate = 0.09
+            monthly_totals = []
+
+            while True:
+                month += 1
+                capital = (capital + monthly)*(1+monthly_rate)
+                passive = capital*monthly_rate
+                monthly_totals.append(passive)
+                if passive >= target_income:
+                    break
+
+            msg = "📈 Пассивный доход по месяцам:\n\n"
+            for i,pas in enumerate(monthly_totals,start=1):
+                if i<=3 or i>len(monthly_totals)-3:
+                    msg+=f"Месяц {i}: {int(pas):,} ₽\n"
+                elif i==4:
+                    msg+="...\n"
+
+            msg+=f"\nПри вашей ежемесячной инвестиции {monthly:,} ₽ вы сможете {goal_phrase['Пассивный доход']} {target_income:,} ₽/мес примерно через {month} месяцев.\n"
+            msg+="Важно: расчет учитывает сложный процент."
+
+            await message.answer(msg, reply_markup=post_calc_menu())
+            user_state.pop(user_id)
+        except:
+            await message.answer("Пожалуйста, выберите одну из предложенных сумм.")
+        return
+
+    # Пройти тест заново
+    if text == "Пройти тест заново":
+        user_state[user_id] = "choose_goal"
+        await message.answer("Какова твоя цель?", reply_markup=option_keyboard(goal_options))
+        return
+
+    # Тест на ИИ
+    if user_id in user_progress:
+        idx = user_progress[user_id]
+        q = test_questions[idx]
+        if text == q["correct"]:
+            user_progress[user_id]+=1
+            if user_progress[user_id]<len(test_questions):
+                await send_test_question(message,user_progress[user_id])
+            else:
+                await message.answer("✅ Тест пройден! Вы поняли, что использование рычагов, таких как ИИ, "
+                                     "помогает быстрее достигать целей.", reply_markup=main_menu())
+                user_progress.pop(user_id)
+        else:
+            await message.answer("❌ Неверно. Попробуйте ещё раз.")
+        return
+
+    # Если ничего не подошло
+    await message.answer("Я вас не понял. Используйте меню 👇", reply_markup=main_menu())
+
+
+from aiogram import F
+
+# --- Ловим ответы помощников в группе ---
+@dp.message(F.chat.id == -1003081706651)
+async def helper_reply_handler(message: types.Message):
+    if (
+        message.reply_to_message
+        and message.reply_to_message.from_user
+        and message.reply_to_message.from_user.is_bot
+    ):
+        # Получаем данные инвестора из словаря
+        investor = invest_requests.get(message.reply_to_message.message_id)
+
+        if investor:
+            user_id = investor["user_id"]
+
+            # Отправляем пользователю уведомление + текст помощника
+            await bot.send_message(
+                chat_id=user_id,
+                text="✅ Ваш личный помощник ответил вам:\n\n" + (message.text or "")
+            )
+
+            # Уведомляем группу
+            await message.reply("📨 Сообщение пользователю доставлено")
+
+import datetime
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+# --- Ловим нажатия inline кнопок в группе ---
+@dp.callback_query()
+async def handle_callbacks(callback: types.CallbackQuery):
+    data = callback.data
+    chat_id = callback.message.chat.id
+    message_id = callback.message.message_id
+    user = callback.from_user
+
+    # --- Кнопка "В меню" ---
+    if data == "back_to_menu":
+        await callback.message.answer("Сделай свой выбор", reply_markup=main_menu())
+        await callback.answer()
+        return
+
+    # --- Подтверждение вложения ---
+    if data and data.startswith("confirm_invest_"):
+        if chat_id != -1003081706651:  # только группа помощников
             return
         try:
-            chat = await bot.get_chat(username)
-        except TelegramBadRequest:
-            await message.answer("Этот username недоступен или приватный, введите другой @username.")
+            msg_id = int(data.split("_")[2])
+        except (IndexError, ValueError):
+            await callback.answer("Ошибка данных кнопки", show_alert=True)
             return
-        user_data[user_id]["contact_info"] = username
-    else:
-        user_data[user_id]["contact_info"] = message.text
 
-    data = user_data[user_id]
-    await bot.send_message(
-        chat_id=ADMIN_ID,
-        text=(
-            f"🔥 Новый инвестор!\n\n"
-            f"👤 Пользователь: @{message.from_user.username or '—'}\n"
-            f"Имя: {message.from_user.full_name}\n"
-            f"ID: {message.from_user.id}\n\n"
-            f"📌 Финансовая грамотность: {data.get('quiz_score','—')}/{len(quiz_questions)}\n"
-            f"📌 Цель: {data.get('goal','—')}\n"
-            f"💰 Первоначальный взнос: {data.get('initial_sum','—')}\n"
-            f"💵 Ежемесячные вложения: {data.get('sum','—')}\n"
-            f"📌 Контактный метод: {data.get('contact_method','—')}\n"
-            f"📌 Контакт: {data.get('contact_info','—')}\n"
+        confirmer_name = user.full_name
+        now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+        # Обновляем текст сообщения
+        new_text = callback.message.text + f"\n\n💵 Вложение подтверждено {now} пользователем {confirmer_name} ✅"
+        await callback.message.edit_text(new_text, reply_markup=None)
+
+        # Попытка закрепления сообщения
+        try:
+            await bot.pin_chat_message(chat_id=chat_id, message_id=message_id, disable_notification=True)
+        except Exception as e:
+            print("Ошибка закрепления:", e)
+
+        await callback.answer("Вложение подтверждено и сообщение закреплено ✅")
+        return
+
+    # --- Подтвердить заявку (кнопка "✅ Подтвердить заявку") ---
+    if data and data.startswith("confirm_"):
+        if chat_id != -1003081706651:
+            return
+        try:
+            msg_id = int(data.split("_")[1])
+        except (IndexError, ValueError):
+            await callback.answer("Ошибка данных кнопки", show_alert=True)
+            return
+
+        investor = invest_requests.get(msg_id)
+        if not investor:
+            await callback.answer("⚠️ Заявка уже обработана или не найдена", show_alert=True)
+            return
+
+        user_id = investor["user_id"]
+        investor_name = investor["full_name"]
+        investor_username = investor.get("username")
+        investor_text = investor.get("text", "")
+
+        helper_name = user.full_name
+        helper_id = user.id
+        helper_username = user.username
+        now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+
+        # --- Сообщение инвестору ---
+        keyboard_user = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(
+                text=f"✉️ Написать помощнику {helper_name}",
+                url=f"https://t.me/{helper_username}" if helper_username else f"tg://user?id={helper_id}"
+            )
+        ]])
+        await bot.send_message(
+            chat_id=user_id,
+            text=(
+                f"✅ Ваш личный помощник {helper_name} подтвердил заявку!\n"
+                f"⏰ Время подтверждения: {now}\n\n"
+                "Вы можете написать ему напрямую:"
+            ),
+            reply_markup=keyboard_user
         )
-    )
-    await message.answer("Спасибо! Ваши данные отправлены, наш личный помощник свяжется с вами в ближайшее время.")
 
-# === Запуск ===
+        # --- Сообщение в группе ---
+        new_text_group = (
+            f"✅ Заявка подтверждена!\n\n"
+            f"📌 Инвестор:\n"
+            f"🆔 Telegram ID: {user_id}\n"
+            f"👤 Имя: {investor_name}\n"
+            f"💬 Username: @{investor_username if investor_username else 'нет'}\n"
+            f"💬 Сообщение инвестора:\n{investor_text}\n\n"
+            f"📌 Помощник:\n"
+            f"👤 Имя: {helper_name}\n"
+            f"🆔 Telegram ID: {helper_id}\n"
+            f"💬 Username: @{helper_username if helper_username else 'нет'}\n\n"
+            f"⏰ Время подтверждения: {now}"
+        )
+
+        keyboard_group = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text=f"✉️ Написать инвестору {investor_name}",
+                    url=f"https://t.me/{investor_username}" if investor_username else f"tg://user?id={user_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="💵 Подтвердить вложение",
+                    callback_data=f"confirm_invest_{msg_id}"
+                )
+            ]
+        ])
+
+        await callback.message.edit_text(new_text_group, reply_markup=keyboard_group)
+
+        # Сохраняем group_msg_id для дальнейших действий
+        invest_requests[msg_id]["group_msg_id"] = callback.message.message_id
+
+        await callback.answer("Заявка подтверждена ✅")
+        return
+
 async def main():
     await dp.start_polling(bot)
 
