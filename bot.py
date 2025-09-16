@@ -73,12 +73,11 @@ async def goal_handler(query: CallbackQuery):
     }
     user_data[query.from_user.id]["goal"] = goal_map[query.data]
 
-    # Первый вопрос — первоначальный взнос
     sums_initial = ["10 000 ₽", "20 000 ₽", "30 000 ₽",
                     "40 000 ₽", "50 000 ₽", "100 000 ₽",
                     "250 000 ₽", "500 000 ₽", "1 000 000 ₽"]
 
-    # Формируем кнопки по 3 в ряд
+    # Кнопки по 3 в ряд
     keyboard_rows = []
     for i in range(0, len(sums_initial), 3):
         row = [InlineKeyboardButton(text=s, callback_data=f"initial_{s}") for s in sums_initial[i:i+3]]
@@ -111,7 +110,7 @@ async def initial_handler(query: CallbackQuery):
         reply_markup=kb_monthly
     )
 
-# === Сумма ежемесячного вложения и расчет Trading Bot с прогресс-баром ===
+# === Сумма ежемесячного вложения и расчет Trading Bot ===
 @dp.callback_query(F.data.startswith("sum_"))
 async def sum_handler(query: CallbackQuery):
     user_data[query.from_user.id]["sum"] = query.data.replace("sum_", "")
@@ -121,26 +120,23 @@ async def sum_handler(query: CallbackQuery):
     initial_sum = int(initial_str) if initial_str.isdigit() else 0
     monthly_invest = int(monthly_str) if monthly_str.isdigit() else 0
 
-    rate = 0.09
-    months_to_show = [4, 6, 12, 24]
+    rate = 0.09  # доходность в месяц
+    periods = [1, 3, 6, 12, 24]  # месяцы для прогноза
 
     balance = initial_sum
     invested_total = initial_sum
     forecast_text = f"💡 Прогноз Trading Bot при первоначальном взносе {initial_sum:,} ₽ " \
-                    f"и ежемесячном вложении {monthly_invest:,} ₽ (средняя доходность 9%/мес)\n\n"
+                    f"и ежемесячном вложении {monthly_invest:,} ₽ (9%/мес)\n\n"
 
-    for month in range(1, max(months_to_show)+1):
+    for month in range(1, max(periods)+1):
         balance = balance * (1 + rate) + monthly_invest
         invested_total += monthly_invest
         passive_income = balance - invested_total
-        if month in months_to_show:
-            bar_length = 10
-            percent = min(int(passive_income / max(1, invested_total) * bar_length), bar_length)
-            bar = "🟩" * percent + "⬜" * (bar_length - percent)
+        if month in periods:
             forecast_text += (
                 f"📅 Через {month} мес:\n"
                 f"  Вложено: {invested_total:,} ₽\n"
-                f"  Пассивный доход: {int(passive_income):,} ₽ {bar}\n"
+                f"  Пассивный доход: {int(passive_income):,} ₽\n"
                 f"  Баланс: {int(balance):,} ₽\n\n"
             )
 
