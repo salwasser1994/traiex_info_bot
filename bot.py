@@ -125,19 +125,29 @@ async def sum_handler(query: CallbackQuery):
     initial_sum = int(initial_str) if initial_str.isdigit() else 0
     monthly_invest = int(monthly_str) if monthly_str.isdigit() else 0
     rate = 0.09
-    periods = [1,3,6,12,24]  # месяцы: 1,3,6,12,24
+    periods = [1, 3, 6, 12, 24]  # месяцы
+    
     balance = initial_sum
     invested_total = initial_sum
+    
     forecast_text = f"💡 Прогноз Trading Bot при первоначальном взносе {initial_sum:,} ₽ " \
                     f"и ежемесячном вложении {monthly_invest:,} ₽ (9%/мес)\n\n"
-    for month in range(1, max(periods)+1):
-        balance = balance*(1+rate)+monthly_invest
-        invested_total += monthly_invest
+    
+    for month in range(1, max(periods) + 1):
+        if month > 1:
+            balance += monthly_invest
+            invested_total += monthly_invest
+        profit = balance * rate
+        balance += profit
         passive_income = balance - invested_total
         if month in periods:
-            forecast_text += f"📅 Через {month} мес:\n  Вложено: {invested_total:,} ₽\n" \
-                             f"  Пассивный доход: {int(passive_income):,} ₽\n  Баланс: {int(balance):,} ₽\n\n"
-    # Предложение ознакомиться с офертой
+            forecast_text += (
+                f"📅 Через {month} мес:\n"
+                f"  Вложено: {invested_total:,} ₽\n"
+                f"  Пассивный доход: {int(passive_income):,} ₽\n"
+                f"  Баланс: {int(balance):,} ₽\n\n"
+            )
+    
     kb_offer = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Ознакомиться с офертой 📄", callback_data="offer_read")]
     ])
