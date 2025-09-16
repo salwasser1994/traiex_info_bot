@@ -1,6 +1,6 @@
 import logging
 import asyncio
-from aiogram import Bot, Dispatcher, F
+from aiogram import Bot, Dispatcher
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command, Text
 
@@ -20,12 +20,12 @@ user_data = {}
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
     user_data[message.from_user.id] = {}
-    
+
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Да, хочу узнать! 🚀", callback_data="warmup_yes")],
         [InlineKeyboardButton(text="Нет, просто хочу идеи 💡", callback_data="warmup_no")]
     ])
-    
+
     await message.answer(
         f"Привет, {message.from_user.first_name}! 👋\n"
         "Я твой финансовый помощник Финансович. 💼\n"
@@ -91,7 +91,7 @@ async def goal_handler(query: CallbackQuery):
 @dp.callback_query(Text(startswith="initial_"))
 async def initial_handler(query: CallbackQuery):
     user_data[query.from_user.id]["initial_sum"] = query.data.replace("initial_", "")
-    
+
     # Второй вопрос — ежемесячное вложение
     sums_monthly = [
         "0 ₽", "10 000 ₽", "20 000 ₽", "30 000 ₽",
@@ -109,36 +109,33 @@ async def initial_handler(query: CallbackQuery):
 @dp.callback_query(Text(startswith="sum_"))
 async def sum_handler(query: CallbackQuery):
     user_data[query.from_user.id]["sum"] = query.data.replace("sum_", "")
-    
+
     # Получаем числовые значения
     initial_str = user_data[query.from_user.id]["initial_sum"].replace("₽", "").replace(" ", "")
     monthly_str = query.data.replace("sum_", "").replace("₽", "").replace(" ", "")
-    try:
-        initial_sum = int(initial_str)
-    except ValueError:
-        initial_sum = 0
-    try:
-        monthly_invest = int(monthly_str)
-    except ValueError:
-        monthly_invest = 0
+    initial_sum = int(initial_str) if initial_str.isdigit() else 0
+    monthly_invest = int(monthly_str) if monthly_str.isdigit() else 0
 
     # Средняя доходность Trading Bot
     rate = 0.09  # 9% в месяц
-    
+
     # Таблица прогноза
-    forecast_lines = ["Месяц | Вложено | Пассивный доход | Баланс"]
+    forecast_lines = ["Месяц | Вложено | 💰 Пассивный доход | 📈 Баланс"]
     forecast_lines.append("---|---|---|---")
-    
+
     balance = initial_sum
     invested_total = initial_sum
-    
-    for month in range(1, 24 + 1):  # показываем до 24 мес
+
+    for month in range(1, 25):
         balance = balance * (1 + rate) + monthly_invest
         invested_total += monthly_invest
         passive_income = balance - invested_total
         if month in [4, 6, 12, 24]:
+            bar_length = 10
+            percent = min(int(passive_income / max(1, invested_total) * bar_length), bar_length)
+            bar = "🟩" * percent + "⬜" * (bar_length - percent)
             forecast_lines.append(
-                f"{month} | {invested_total:,} ₽ | {int(passive_income):,} ₽ | {int(balance):,} ₽"
+                f"{month} | {invested_total:,} ₽ | {int(passive_income):,} ₽ {bar} | {int(balance):,} ₽"
             )
 
     forecast_text = "\n".join(forecast_lines)
@@ -148,7 +145,7 @@ async def sum_handler(query: CallbackQuery):
         [InlineKeyboardButton(text="Предпочитаю стабильность 🛡️", callback_data="risk_low")],
         [InlineKeyboardButton(text="Комбинирую 🔄", callback_data="risk_medium")]
     ])
-    
+
     await query.message.edit_text(
         f"💡 Прогноз Trading Bot при первоначальном взносе {initial_sum:,} ₽ и ежемесячном вложении {monthly_invest:,} ₽ (средняя доходность 9%/мес):\n\n"
         f"{forecast_text}\n\n"
