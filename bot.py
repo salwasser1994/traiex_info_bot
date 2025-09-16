@@ -33,6 +33,11 @@ async def cmd_start(message: Message):
         reply_markup=kb
     )
 
+# === Начало опроса ===
+@dp.callback_query(F.data=="start_survey")
+async def start_survey_handler(query: CallbackQuery):
+    await send_quiz_question(query.from_user.id, query.message)
+
 # === Вопросы по финансовой грамотности ===
 quiz_questions = [
     {"question": "Что такое пассивный доход?", "options":["Деньги работают сами","Зарплата","Выигрыш в лотерею"], "correct":0},
@@ -169,7 +174,6 @@ async def capture_contact_info(message: Message):
         if not username.startswith("@"):
             await message.answer("Неверный формат. Укажите ваш @username.")
             return
-        # Проверяем доступность аккаунта
         try:
             chat = await bot.get_chat(username)
         except TelegramBadRequest:
@@ -179,7 +183,6 @@ async def capture_contact_info(message: Message):
     else:
         user_data[user_id]["contact_info"] = message.text
 
-    # Отправляем все данные в поддержку
     data = user_data[user_id]
     await bot.send_message(
         chat_id=ADMIN_ID,
