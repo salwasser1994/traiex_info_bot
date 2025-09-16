@@ -7,7 +7,7 @@ from aiogram.filters import Command
 logging.basicConfig(level=logging.INFO)
 
 # === Конфиг ===
-BOT_TOKEN = "YOUR_BOT_TOKEN"
+BOT_TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
 ADMIN_ID = -1003081706651
 OFFER_PDF_FILE_ID = "BQACAgQAAxkBAAIFOGi6vNHLzH9IyJt0q7_V4y73FcdrAAKXGwACeDjZUSdnK1dqaQoPNgQ"
 
