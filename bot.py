@@ -1,14 +1,14 @@
 import logging
-from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.filters import Command
 import asyncio
+from aiogram import Bot, Dispatcher, F
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram.filters import Command, Text
 
 logging.basicConfig(level=logging.INFO)
 
 # === Конфиг ===
 BOT_TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
-ADMIN_ID = -1003081706651  # групповой чат
+ADMIN_ID = -1003081706651  # групповой чат для лидов
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -16,154 +16,140 @@ dp = Dispatcher()
 # Хранилище состояния пользователей
 user_data = {}
 
-
 # === Старт ===
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
-    user_data[message.from_user.id] = {}  # обнуляем прогресс
-
+    user_data[message.from_user.id] = {}
+    
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Хочу разобраться 💡", callback_data="interest_yes")],
-        [InlineKeyboardButton(text="Неинтересно 🚫", callback_data="interest_no")]
+        [InlineKeyboardButton(text="Да, хочу узнать! 🚀", callback_data="warmup_yes")],
+        [InlineKeyboardButton(text="Нет, просто хочу идеи 💡", callback_data="warmup_no")]
     ])
-
+    
     await message.answer(
-        f"Привет, {message.from_user.first_name}! 👋\n\n"
-        "Я — твой финансовый помощник Алексей Финансович. "
-        "Моя цель — помочь тебе понять, как можно приумножить капитал 📈\n\n"
-        "Скажи честно: инвестиции тебе интересны?",
+        f"Привет, {message.from_user.first_name}! 👋\n"
+        "Я твой финансовый помощник Алексей Финансович. 💼\n"
+        "Ты когда-нибудь задумывался, как богатые люди заставляют деньги работать на себя?",
         reply_markup=kb
     )
 
-
-# === Интерес ===
-@dp.callback_query(F.data == "interest_yes")
-async def handle_interested(callback: CallbackQuery):
-    user_data[callback.from_user.id]["interest"] = "Да"
-
+# === Warm-up ===
+@dp.callback_query(Text(startswith="warmup_"))
+async def warmup_handler(query: CallbackQuery):
+    user_data[query.from_user.id]["warmup"] = query.data
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Дом 🏠", callback_data="goal_home"),
-         InlineKeyboardButton(text="Машина 🚗", callback_data="goal_car")],
-        [InlineKeyboardButton(text="Пассивный доход 💸", callback_data="goal_passive")]
+        [InlineKeyboardButton(text="Да, уже инвестирую 📈", callback_data="experience_yes")],
+        [InlineKeyboardButton(text="Нет, хочу начать 🟢", callback_data="experience_no")],
+        [InlineKeyboardButton(text="Пробовал, но были неудачи ❌", callback_data="experience_fail")]
     ])
-
-    await callback.message.answer(
-        "Отлично 🙌 Рад, что тебе интересно!\n\n"
-        "Скажи, какая цель для тебя важнее всего сейчас?",
+    await query.message.edit_text(
+        "Отлично! А у тебя есть опыт инвестирования?",
         reply_markup=kb
     )
-    await callback.answer()
 
-
-@dp.callback_query(F.data == "interest_no")
-async def handle_not_interested(callback: CallbackQuery):
-    user_data[callback.from_user.id]["interest"] = "Нет"
-
-    await callback.message.answer(
-        "Понял тебя 🙂\n"
-        "Если захочешь узнать больше о том, как люди достигают своих финансовых целей, "
-        "можешь вернуться в любой момент — я всегда здесь."
+# === Опыт инвестирования ===
+@dp.callback_query(Text(startswith="experience_"))
+async def experience_handler(query: CallbackQuery):
+    user_data[query.from_user.id]["experience"] = query.data.replace("experience_", "")
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Создать пассивный доход 💸", callback_data="goal_passive")],
+        [InlineKeyboardButton(text="Купить дом 🏠", callback_data="goal_house")],
+        [InlineKeyboardButton(text="Купить машину 🚗", callback_data="goal_car")],
+        [InlineKeyboardButton(text="Просто приумножить капитал 📊", callback_data="goal_growth")]
+    ])
+    await query.message.edit_text(
+        "Какая твоя главная финансовая цель?",
+        reply_markup=kb
     )
-    await callback.answer()
 
-
-# === Цели ===
-@dp.callback_query(F.data.startswith("goal_"))
-async def handle_goal(callback: CallbackQuery):
+# === Финансовая цель ===
+@dp.callback_query(Text(startswith="goal_"))
+async def goal_handler(query: CallbackQuery):
     goal_map = {
-        "goal_home": "Дом 🏠",
+        "goal_passive": "Пассивный доход 💸",
+        "goal_house": "Дом 🏠",
         "goal_car": "Машина 🚗",
-        "goal_passive": "Пассивный доход 💸"
+        "goal_growth": "Приумножить капитал 📊"
     }
-    goal = goal_map[callback.data]
-    user_data[callback.from_user.id]["goal"] = goal
+    user_data[query.from_user.id]["goal"] = goal_map[query.data]
+    
+    # Суммы для цели
+    if query.data == "goal_passive":
+        sums = ["50 000 ₽/мес", "100 000 ₽/мес", "200 000 ₽/мес"]
+    elif query.data == "goal_house":
+        sums = ["3 000 000 ₽", "5 000 000 ₽", "10 000 000 ₽"]
+    elif query.data == "goal_car":
+        sums = ["1 000 000 ₽", "2 000 000 ₽", "3 000 000 ₽"]
+    else:
+        sums = ["100 000 ₽", "200 000 ₽", "500 000 ₽"]
 
-    if goal == "Дом 🏠":
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="3 000 000 ₽", callback_data="sum_3000000"),
-             InlineKeyboardButton(text="5 000 000 ₽", callback_data="sum_5000000")],
-            [InlineKeyboardButton(text="10 000 000 ₽", callback_data="sum_10000000")]
-        ])
-    elif goal == "Машина 🚗":
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="1 000 000 ₽", callback_data="sum_1000000"),
-             InlineKeyboardButton(text="2 000 000 ₽", callback_data="sum_2000000")],
-            [InlineKeyboardButton(text="3 000 000 ₽", callback_data="sum_3000000car")]
-        ])
-    else:  # Пассивный доход
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="50 000 ₽/мес", callback_data="sum_50000"),
-             InlineKeyboardButton(text="100 000 ₽/мес", callback_data="sum_100000")],
-            [InlineKeyboardButton(text="200 000 ₽/мес", callback_data="sum_200000")]
-        ])
+    kb = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text=s, callback_data=f"sum_{s}")] for s in sums]
+    )
 
-    await callback.message.answer(
-        f"Хорошо 👍 Давай уточним.\n\n"
-        f"Сколько денег тебе нужно, чтобы реализовать цель «{goal}»?",
+    await query.message.edit_text(
+        f"Хорошо 👍 Давай уточним.\nСколько денег ты готов вложить для цели «{goal_map[query.data]}»?",
         reply_markup=kb
     )
-    await callback.answer()
-
 
 # === Сумма ===
-@dp.callback_query(F.data.startswith("sum_"))
-async def handle_sum(callback: CallbackQuery):
-    sums_map = {
-        "sum_3000000": "3 000 000 ₽",
-        "sum_5000000": "5 000 000 ₽",
-        "sum_10000000": "10 000 000 ₽",
-        "sum_1000000": "1 000 000 ₽",
-        "sum_2000000": "2 000 000 ₽",
-        "sum_3000000car": "3 000 000 ₽",
-        "sum_50000": "50 000 ₽/мес",
-        "sum_100000": "100 000 ₽/мес",
-        "sum_200000": "200 000 ₽/мес"
-    }
-
-    user_data[callback.from_user.id]["sum"] = sums_map.get(callback.data, "—")
-
+@dp.callback_query(Text(startswith="sum_"))
+async def sum_handler(query: CallbackQuery):
+    user_data[query.from_user.id]["sum"] = query.data.replace("sum_", "")
+    
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="Связаться с человеком 👨‍💼", callback_data="contact")]
+        [InlineKeyboardButton(text="Люблю риск 🚀", callback_data="risk_high")],
+        [InlineKeyboardButton(text="Предпочитаю стабильность 🛡️", callback_data="risk_low")],
+        [InlineKeyboardButton(text="Комбинирую 🔄", callback_data="risk_medium")]
     ])
-
-    await callback.message.answer(
-        f"Отлично 👌 С твоей целью и выбранной суммой это вполне реально.\n\n"
-        "Я могу подсказать, как начать двигаться к этому результату 🚀\n\n"
-        "Хочешь, я свяжу тебя с живым помощником, который объяснит детали?",
+    
+    await query.message.edit_text(
+        "Отлично 👌\nА теперь скажи, как ты относишься к риску?",
         reply_markup=kb
     )
-    await callback.answer()
 
+# === Отношение к риску ===
+@dp.callback_query(Text(startswith="risk_"))
+async def risk_handler(query: CallbackQuery):
+    risk_map = {
+        "risk_high": "Люблю риск 🚀",
+        "risk_low": "Стабильность 🛡️",
+        "risk_medium": "Комбинирую 🔄"
+    }
+    user_data[query.from_user.id]["risk"] = risk_map[query.data]
 
-# === Лид ===
-@dp.callback_query(F.data == "contact")
-async def handle_contact(callback: CallbackQuery):
-    await callback.message.answer(
-        "Супер 🎉 Я передал твой запрос нашему консультанту. "
-        "В ближайшее время он свяжется с тобой в этом чате 👨‍💻"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="Связаться с экспертом 👨‍💼", callback_data="contact_expert")]
+    ])
+
+    await query.message.edit_text(
+        "Отлично! Ты почти готов. Я могу связать тебя с нашим экспертом, "
+        "который поможет выбрать лучший путь инвестиций.",
+        reply_markup=kb
     )
 
-    data = user_data.get(callback.from_user.id, {})
-    interest = data.get("interest", "—")
-    goal = data.get("goal", "—")
-    summ = data.get("sum", "—")
+# === Связь с консультантом ===
+@dp.callback_query(Text("contact_expert"))
+async def contact_handler(query: CallbackQuery):
+    data = user_data.get(query.from_user.id, {})
+    await query.message.edit_text(
+        "Супер 🎉 Я передал твой запрос нашему консультанту. "
+        "В ближайшее время он свяжется с тобой 👨‍💻"
+    )
 
-    # Уведомляем админ-чат
     await bot.send_message(
         chat_id=ADMIN_ID,
         text=(
             f"🔥 Новый лид!\n\n"
-            f"👤 Пользователь: @{callback.from_user.username}\n"
-            f"Имя: {callback.from_user.full_name}\n"
-            f"ID: {callback.from_user.id}\n\n"
-            f"📌 Интерес: {interest}\n"
-            f"🎯 Цель: {goal}\n"
-            f"💰 Сумма: {summ}\n\n"
-            f"✅ Хочет связаться с человеком 👨‍💼"
+            f"👤 Пользователь: @{query.from_user.username}\n"
+            f"Имя: {query.from_user.full_name}\n"
+            f"ID: {query.from_user.id}\n\n"
+            f"📌 Опыт инвестирования: {data.get('experience', '—')}\n"
+            f"🎯 Цель: {data.get('goal', '—')}\n"
+            f"💰 Сумма: {data.get('sum', '—')}\n"
+            f"⚡ Риск: {data.get('risk', '—')}\n"
         )
     )
-    await callback.answer()
-
 
 # === Запуск ===
 async def main():
