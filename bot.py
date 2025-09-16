@@ -1,8 +1,9 @@
 import logging
 import asyncio
-from aiogram import Bot, Dispatcher, F
+from aiogram import Bot, Dispatcher
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
+from aiogram.filters.text import Text
 
 logging.basicConfig(level=logging.INFO)
 
@@ -34,7 +35,7 @@ async def cmd_start(message: Message):
     )
 
 # === Warm-up ===
-@dp.callback_query(F.data.startswith("warmup_"))
+@dp.callback_query(Text(startswith="warmup_"))
 async def warmup_handler(query: CallbackQuery):
     user_data[query.from_user.id]["warmup"] = query.data
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -48,7 +49,7 @@ async def warmup_handler(query: CallbackQuery):
     )
 
 # === Опыт инвестирования ===
-@dp.callback_query(F.data.startswith("experience_"))
+@dp.callback_query(Text(startswith="experience_"))
 async def experience_handler(query: CallbackQuery):
     user_data[query.from_user.id]["experience"] = query.data.replace("experience_", "")
     kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -63,7 +64,7 @@ async def experience_handler(query: CallbackQuery):
     )
 
 # === Финансовая цель ===
-@dp.callback_query(F.data.startswith("goal_"))
+@dp.callback_query(Text(startswith="goal_"))
 async def goal_handler(query: CallbackQuery):
     goal_map = {
         "goal_passive": "Пассивный доход 💸",
@@ -88,7 +89,7 @@ async def goal_handler(query: CallbackQuery):
     )
 
 # === Первоначальный взнос ===
-@dp.callback_query(F.data.startswith("initial_"))
+@dp.callback_query(Text(startswith="initial_"))
 async def initial_handler(query: CallbackQuery):
     user_data[query.from_user.id]["initial_sum"] = query.data.replace("initial_", "")
 
@@ -106,7 +107,7 @@ async def initial_handler(query: CallbackQuery):
     )
 
 # === Сумма ежемесячного вложения и расчет Trading Bot ===
-@dp.callback_query(F.data.startswith("sum_"))
+@dp.callback_query(Text(startswith="sum_"))
 async def sum_handler(query: CallbackQuery):
     user_data[query.from_user.id]["sum"] = query.data.replace("sum_", "")
 
@@ -116,26 +117,25 @@ async def sum_handler(query: CallbackQuery):
     initial_sum = int(initial_str) if initial_str.isdigit() else 0
     monthly_invest = int(monthly_str) if monthly_str.isdigit() else 0
 
-    # Средняя доходность Trading Bot
-    rate = 0.09  # 9% в месяц
-
-    # Таблица прогноза
-    forecast_lines = ["Месяц | Вложено | 💰 Пассивный доход | 📈 Баланс"]
-    forecast_lines.append("---|---|---|---")
+    rate = 0.09  # средняя доходность Trading Bot 9%/мес
+    months_to_show = [4, 6, 12, 24]
 
     balance = initial_sum
     invested_total = initial_sum
+    forecast_text = f"💡 Прогноз Trading Bot при первоначальном взносе {initial_sum:,} ₽ " \
+                    f"и ежемесячном вложении {monthly_invest:,} ₽ (средняя доходность 9%/мес)\n\n"
 
-    for month in range(1, 25):
+    for month in range(1, max(months_to_show)+1):
         balance = balance * (1 + rate) + monthly_invest
         invested_total += monthly_invest
         passive_income = balance - invested_total
-        if month in [4, 6, 12, 24]:
-            forecast_lines.append(
-                f"{month} | {invested_total:,} ₽ | {int(passive_income):,} ₽ | {int(balance):,} ₽"
+        if month in months_to_show:
+            forecast_text += (
+                f"📅 Через {month} месяцев:\n"
+                f"  Вложено: {invested_total:,} ₽\n"
+                f"  Пассивный доход: {int(passive_income):,} ₽\n"
+                f"  Баланс: {int(balance):,} ₽\n\n"
             )
-
-    forecast_text = "\n".join(forecast_lines)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Люблю риск 🚀", callback_data="risk_high")],
@@ -144,14 +144,12 @@ async def sum_handler(query: CallbackQuery):
     ])
 
     await query.message.edit_text(
-        f"💡 Прогноз Trading Bot при первоначальном взносе {initial_sum:,} ₽ и ежемесячном вложении {monthly_invest:,} ₽ (средняя доходность 9%/мес):\n\n"
-        f"{forecast_text}\n\n"
-        "Теперь выбери, как ты относишься к риску:",
+        forecast_text + "Теперь выбери, как ты относишься к риску:",
         reply_markup=kb
     )
 
 # === Отношение к риску ===
-@dp.callback_query(F.data.startswith("risk_"))
+@dp.callback_query(Text(startswith="risk_"))
 async def risk_handler(query: CallbackQuery):
     risk_map = {
         "risk_high": "Люблю риск 🚀",
@@ -171,7 +169,7 @@ async def risk_handler(query: CallbackQuery):
     )
 
 # === Связь с консультантом ===
-@dp.callback_query(F.data == "contact_expert")
+@dp.callback_query(Text("contact_expert"))
 async def contact_handler(query: CallbackQuery):
     data = user_data.get(query.from_user.id, {})
     await query.message.edit_text(
