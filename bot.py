@@ -2,7 +2,7 @@ import logging
 import asyncio
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.filters import Command
+from aiogram.filters import Command, Text
 
 logging.basicConfig(level=logging.INFO)
 
@@ -116,7 +116,7 @@ async def sum_handler(query: CallbackQuery):
     monthly_invest = int(monthly_str) if monthly_str.isdigit() else 0
 
     rate = 0.09  # 9% в месяц
-    months_to_show = [4, 6, 12, 24]
+    months_to_show = [1, 3, 6, 12, 24]
 
     balance = initial_sum
     invested_total = initial_sum
@@ -128,7 +128,6 @@ async def sum_handler(query: CallbackQuery):
         invested_total += monthly_invest
         passive_income = balance - invested_total
         if month in months_to_show:
-            # графический прогресс-бар 10 сегментов
             bar_length = 10
             percent = min(int(passive_income / max(1, invested_total) * bar_length), bar_length)
             bar = "🟩" * percent + "⬜" * (bar_length - percent)
