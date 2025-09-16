@@ -94,7 +94,7 @@ async def quiz_handler(query: CallbackQuery):
             f"{len(quiz_questions)} баллов.\n\n"
             "Теперь можно перейти к прогнозу и ознакомлению с офертой."
         )
-        # Далее сразу запрос первоначального взноса
+        # Запрос первоначального взноса
         sums_initial = ["10 000 ₽", "20 000 ₽", "30 000 ₽", "40 000 ₽", "50 000 ₽",
                         "100 000 ₽", "250 000 ₽", "500 000 ₽", "1 000 000 ₽"]
         keyboard_rows = []
@@ -116,7 +116,7 @@ async def initial_handler(query: CallbackQuery):
     kb_monthly = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
     await query.message.edit_text("Сколько денег ты готов вкладывать каждый месяц?", reply_markup=kb_monthly)
 
-# === Сумма ежемесячного вложения и прогноз ===
+# === Сумма ежемесячного вложения и прогноз с правильным пассивным доходом ===
 @dp.callback_query(F.data.startswith("sum_"))
 async def sum_handler(query: CallbackQuery):
     user_data[query.from_user.id]["sum"] = query.data.replace("sum_", "")
@@ -125,29 +125,24 @@ async def sum_handler(query: CallbackQuery):
     initial_sum = int(initial_str) if initial_str.isdigit() else 0
     monthly_invest = int(monthly_str) if monthly_str.isdigit() else 0
     rate = 0.09
-    periods = [1, 3, 6, 12, 24]  # месяцы
+    periods = [1,3,6,12,24]  # месяцы: 1,3,6,12,24
+    balance = 0
+    forecast_text = f"💡 Прогноз Trading Bot при первоначальном взносе {initial_sum:,} ₽ и ежемесячном вложении {monthly_invest:,} ₽ (9%/мес)\n\n"
     
-    balance = initial_sum
-    invested_total = initial_sum
-    
-    forecast_text = f"💡 Прогноз Trading Bot при первоначальном взносе {initial_sum:,} ₽ " \
-                    f"и ежемесячном вложении {monthly_invest:,} ₽ (9%/мес)\n\n"
-    
-    for month in range(1, max(periods) + 1):
-        if month > 1:
+    for month in range(1, max(periods)+1):
+        # В начале месяца вносим вложение
+        if month == 1:
+            balance = initial_sum
+        else:
             balance += monthly_invest
-            invested_total += monthly_invest
-        profit = balance * rate
-        balance += profit
-        passive_income = balance - invested_total
+        # Пассивный доход этого месяца
+        passive_income = int(balance * rate)
+        balance += passive_income
         if month in periods:
-            forecast_text += (
-                f"📅 Через {month} мес:\n"
-                f"  Вложено: {invested_total:,} ₽\n"
-                f"  Пассивный доход: {int(passive_income):,} ₽\n"
-                f"  Баланс: {int(balance):,} ₽\n\n"
-            )
-    
+            forecast_text += f"Месяц {month}\n💵 Вложение в этом месяце: {initial_sum if month==1 else monthly_invest:,} ₽\n" \
+                             f"Пассивный доход: {passive_income:,} ₽\nБаланс: {balance:,} ₽\n\n"
+
+    # Кнопка оферты
     kb_offer = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Ознакомиться с офертой 📄", callback_data="offer_read")]
     ])
@@ -165,7 +160,6 @@ async def offer_handler(query: CallbackQuery):
 # === Подтверждение оферты и связь с экспертом ===
 @dp.callback_query(F.data=="offer_accept")
 async def offer_accept_handler(query: CallbackQuery):
-    data = user_data.get(query.from_user.id, {})
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Связаться с экспертом 👨‍💼", callback_data="contact_expert")]
     ])
