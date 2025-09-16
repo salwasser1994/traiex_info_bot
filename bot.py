@@ -94,7 +94,7 @@ async def quiz_handler(query: CallbackQuery):
             f"{len(quiz_questions)} баллов.\n\n"
             "Теперь можно перейти к прогнозу и ознакомлению с офертой."
         )
-        # Запрос первоначального взноса
+        # Далее сразу запрос первоначального взноса
         sums_initial = ["10 000 ₽", "20 000 ₽", "30 000 ₽", "40 000 ₽", "50 000 ₽",
                         "100 000 ₽", "250 000 ₽", "500 000 ₽", "1 000 000 ₽"]
         keyboard_rows = []
@@ -116,33 +116,37 @@ async def initial_handler(query: CallbackQuery):
     kb_monthly = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
     await query.message.edit_text("Сколько денег ты готов вкладывать каждый месяц?", reply_markup=kb_monthly)
 
-# === Сумма ежемесячного вложения и прогноз с правильным пассивным доходом ===
+# === Сумма ежемесячного вложения и прогноз ===
 @dp.callback_query(F.data.startswith("sum_"))
 async def sum_handler(query: CallbackQuery):
     user_data[query.from_user.id]["sum"] = query.data.replace("sum_", "")
-    initial_str = user_data[query.from_user.id]["initial_sum"].replace("₽","").replace(" ","")
-    monthly_str = query.data.replace("sum_","").replace(" ","").replace("₽","")
-    initial_sum = int(initial_str) if initial_str.isdigit() else 0
-    monthly_invest = int(monthly_str) if monthly_str.isdigit() else 0
+    initial_sum = int(user_data[query.from_user.id]["initial_sum"].replace("₽","").replace(" ",""))
+    monthly_invest = int(user_data[query.from_user.id]["sum"].replace("₽","").replace(" ",""))
     rate = 0.09
-    periods = [1,3,6,12,24]  # месяцы: 1,3,6,12,24
+    periods = [1,3,6,12,24]  # месяцы для прогноза
+
     balance = 0
     forecast_text = f"💡 Прогноз Trading Bot при первоначальном взносе {initial_sum:,} ₽ и ежемесячном вложении {monthly_invest:,} ₽ (9%/мес)\n\n"
-    
+
     for month in range(1, max(periods)+1):
-        # В начале месяца вносим вложение
+        # Вложение текущего месяца
         if month == 1:
-            balance = initial_sum
+            invested_this_month = initial_sum
         else:
-            balance += monthly_invest
-        # Пассивный доход этого месяца
+            invested_this_month = monthly_invest
+        balance += invested_this_month
+
+        # Пассивный доход за месяц
         passive_income = int(balance * rate)
         balance += passive_income
-        if month in periods:
-            forecast_text += f"Месяц {month}\n💵 Вложение в этом месяце: {initial_sum if month==1 else monthly_invest:,} ₽\n" \
-                             f"Пассивный доход: {passive_income:,} ₽\nБаланс: {balance:,} ₽\n\n"
 
-    # Кнопка оферты
+        if month in periods:
+            forecast_text += (f"Месяц {month}\n"
+                              f"💵 Вложение в этом месяце: {invested_this_month:,} ₽\n"
+                              f"Пассивный доход: {passive_income:,} ₽ (9%)\n"
+                              f"Баланс: {balance:,} ₽\n\n")
+
+    # Предложение ознакомиться с офертой
     kb_offer = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="Ознакомиться с офертой 📄", callback_data="offer_read")]
     ])
