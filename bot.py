@@ -106,18 +106,17 @@ async def initial_handler(query: CallbackQuery):
         reply_markup=kb_monthly
     )
 
-# === Сумма ежемесячного вложения и расчет Trading Bot ===
+# === Сумма ежемесячного вложения и расчет Trading Bot с прогресс-баром ===
 @dp.callback_query(Text(startswith="sum_"))
 async def sum_handler(query: CallbackQuery):
     user_data[query.from_user.id]["sum"] = query.data.replace("sum_", "")
 
-    # Получаем числовые значения
     initial_str = user_data[query.from_user.id]["initial_sum"].replace("₽", "").replace(" ", "")
     monthly_str = query.data.replace("sum_", "").replace("₽", "").replace(" ", "")
     initial_sum = int(initial_str) if initial_str.isdigit() else 0
     monthly_invest = int(monthly_str) if monthly_str.isdigit() else 0
 
-    rate = 0.09  # средняя доходность Trading Bot 9%/мес
+    rate = 0.09  # 9% в месяц
     months_to_show = [4, 6, 12, 24]
 
     balance = initial_sum
@@ -130,10 +129,14 @@ async def sum_handler(query: CallbackQuery):
         invested_total += monthly_invest
         passive_income = balance - invested_total
         if month in months_to_show:
+            # графический прогресс-бар 10 сегментов
+            bar_length = 10
+            percent = min(int(passive_income / max(1, invested_total) * bar_length), bar_length)
+            bar = "🟩" * percent + "⬜" * (bar_length - percent)
             forecast_text += (
-                f"📅 Через {month} месяцев:\n"
+                f"📅 Через {month} мес:\n"
                 f"  Вложено: {invested_total:,} ₽\n"
-                f"  Пассивный доход: {int(passive_income):,} ₽\n"
+                f"  Пассивный доход: {int(passive_income):,} ₽ {bar}\n"
                 f"  Баланс: {int(balance):,} ₽\n\n"
             )
 
@@ -179,17 +182,15 @@ async def contact_handler(query: CallbackQuery):
 
     await bot.send_message(
         chat_id=ADMIN_ID,
-        text=(
-            f"🔥 Новый лид!\n\n"
-            f"👤 Пользователь: @{query.from_user.username}\n"
-            f"Имя: {query.from_user.full_name}\n"
-            f"ID: {query.from_user.id}\n\n"
-            f"📌 Опыт инвестирования: {data.get('experience', '—')}\n"
-            f"🎯 Цель: {data.get('goal', '—')}\n"
-            f"💰 Первоначальный взнос: {data.get('initial_sum', '—')}\n"
-            f"💵 Ежемесячные вложения: {data.get('sum', '—')}\n"
-            f"⚡ Риск: {data.get('risk', '—')}\n"
-        )
+        text=(f"🔥 Новый лид!\n\n"
+              f"👤 Пользователь: @{query.from_user.username}\n"
+              f"Имя: {query.from_user.full_name}\n"
+              f"ID: {query.from_user.id}\n\n"
+              f"📌 Опыт инвестирования: {data.get('experience', '—')}\n"
+              f"🎯 Цель: {data.get('goal', '—')}\n"
+              f"💰 Первоначальный взнос: {data.get('initial_sum', '—')}\n"
+              f"💵 Ежемесячные вложения: {data.get('sum', '—')}\n"
+              f"⚡ Риск: {data.get('risk', '—')}\n")
     )
 
 # === Запуск ===
