@@ -17,6 +17,9 @@ if not TOKEN:
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
 
+invest_requests = {}
+already_invested = set()
+
 # FAQ
 faq_data = {
     "Сколько нужно денег, чтобы начать инвестировать?": """Минимальный вход составляет 150 USDT:
