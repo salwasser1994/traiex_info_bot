@@ -1,5 +1,5 @@
-import asyncio
 import os
+import asyncio
 from aiogram import Bot, Dispatcher, types
 from aiogram.client.bot import DefaultBotProperties
 from aiogram.filters import Command
@@ -8,19 +8,14 @@ from aiogram.types import (
     InlineKeyboardMarkup, InlineKeyboardButton
 )
 
-# --- Читаем токен из переменной окружения Railway ---
+# Получаем токен из переменных среды Railway
 TOKEN = os.getenv("BOT_TOKEN")
 if not TOKEN:
     raise ValueError("❌ BOT_TOKEN не найден! Добавь его в Variables на Railway.")
 
-# --- Создаём бота и диспетчер ---
+# Инициализация бота
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode="HTML"))
 dp = Dispatcher()
-
-
-invest_requests = {}
-already_invested = set()
-
 
 # FAQ
 faq_data = {
