@@ -179,6 +179,19 @@ async def handle_message(message: types.Message):
             keyboard=[[KeyboardButton(text="⬅ Назад в меню"), KeyboardButton(text="Далее➡")]],
             resize_keyboard=True
         )
+
+        text_table_intro = (
+            "💸 Один источник дохода: зарплата 50 000 ₽\n\n"
+            "1️⃣ Тратишь всё\n➡️ 2025–2030: 0 ₽\n\n"
+            "2️⃣ Сохраняешь 10 000 ₽ в месяц\n➡️ 2025: 120 000 ₽\n➡️ 2026: 240 000 ₽\n➡️ 2027: 360 000 ₽\n"
+            "➡️ 2028: 480 000 ₽\n➡️ 2029: 600 000 ₽\n➡️ 2030: 720 000 ₽\n\n"
+            "3️⃣ Сохраняешь 10 000 ₽ и инвестируешь (рост капитала)\n➡️ 2025: 261 026 ₽\n➡️ 2026: 1 626 898 ₽\n"
+            "➡️ 2027: 7 529 914 ₽\n➡️ 2028: 33 904 261 ₽\n➡️ 2029: 151 743 362 ₽\n➡️ 2030: 678 241 852 ₽"
+        )
+ 
+        # Сначала текст
+        await message.answer(text_table_intro, reply_markup=keyboard)
+
         await message.answer_photo(
             photo="AgACAgQAAxkBAAIM0Gi9LaXmP4pct66F2FEKUu0WAAF84gACqMoxG5bI6VHDQO5xqprkdwEAAwIAA3kAAzYE",
             reply_markup=keyboard
