@@ -95,7 +95,7 @@ monthly_options = ["10 000 ₽", "20 000 ₽", "30 000 ₽"]
 def main_menu():
     keyboard = [
         [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
-        [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
+        [KeyboardButton(text="💬 Поддержка"), KeyboardButton(text="📄 Просмотр договора оферты")],
         [KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
         [KeyboardButton(text="Часто задаваемые вопросы❓")]
     ]
@@ -374,7 +374,7 @@ async def handle_message(message: types.Message):
             await message.answer("❌ Неверно. Попробуйте ещё раз.")
         return
 
-    elif text == "💰 Готов инвестировать":
+    elif text in ["💰 Готов инвестировать", "💬 Поддержка"]:
         await handle_invest(message)
         return
 
