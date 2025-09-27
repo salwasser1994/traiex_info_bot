@@ -384,6 +384,172 @@ from aiogram import F
 import datetime
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+# --- Обработчик "Готов инвестировать" и подтверждений ---
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import datetime
+
+DEV_IDS = [5205381793, 454141239, 1623272928]
+CHANNEL_LINK = "https://t.me/fingram_global"
+
+async def handle_invest(message: types.Message):
+    user_id = message.from_user.id
+    user = message.from_user
+
+    # Если пользователь уже нажимал
+    if user_id in already_invested:
+        invest_info = invest_requests.get(user_id)
+        text = f"Присоединяйтесь к нашему каналу, где вы найдете много нужной и полезной информации:\n{CHANNEL_LINK}"
+        kb = None
+        if invest_info and invest_info.get("helper_id"):
+            kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(
+                    text=f"✉️ Написать помощнику {invest_info['helper_name']}",
+                    url=f"https://t.me/{invest_info['helper_username']}" if invest_info.get("helper_username") else f"tg://user?id={invest_info['helper_id']}"
+                )
+            ]])
+        await message.answer(text, reply_markup=kb)
+        return
+
+    # Новый инвестор
+    already_invested.add(user_id)
+    invest_requests[user_id] = {
+        "user_id": user.id,
+        "full_name": user.full_name,
+        "username": user.username,
+        "group_msg_id": None,
+        "helper_id": None,
+        "helper_name": None,
+        "helper_username": None,
+        "confirmed": False,
+        "investment_confirmed": False
+    }
+
+    # Сообщение в группе
+    group_text = (
+        f"🚨 Новый инвестор!\n\n"
+        f"👤 Имя: {user.full_name}\n"
+        f"🆔 Telegram ID: {user.id}\n"
+        f"💬 Username: @{user.username if user.username else 'нет'}"
+    )
+    keyboard_group = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text="✅ Подтвердить заявку",
+            callback_data=f"confirm_{user.id}"
+        )
+    ]])
+
+    sent = await bot.send_message(chat_id=-1003081706651, text=group_text, reply_markup=keyboard_group)
+    invest_requests[user_id]["group_msg_id"] = sent.message_id
+
+    # Сообщение пользователю
+    text_user = (
+        "Поздравляю вас! Вам скоро будет назначен ваш личный помощник.\n\n"
+        f"Присоединяйтесь к нашему каналу, где вы найдете много нужной и полезной информации:\n{CHANNEL_LINK}"
+    )
+    await message.answer(text_user, reply_markup=None)
+
+
+# --- Callback для подтверждения заявки помощником ---
+@dp.callback_query(lambda c: c.data.startswith("confirm_"))
+async def confirm_investor(callback: types.CallbackQuery):
+    data = callback.data
+    chat_id = callback.message.chat.id
+    message_id = callback.message.message_id
+    user = callback.from_user
+
+    if chat_id != -1003081706651:  # только группа помощников
+        return
+
+    try:
+        investor_id = int(data.split("_")[1])
+    except (IndexError, ValueError):
+        await callback.answer("Ошибка данных кнопки", show_alert=True)
+        return
+
+    investor = invest_requests.get(investor_id)
+    if not investor:
+        await callback.answer("⚠️ Заявка уже обработана или не найдена", show_alert=True)
+        return
+
+    now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+    investor["helper_id"] = user.id
+    investor["helper_name"] = user.full_name
+    investor["helper_username"] = user.username
+    investor["confirmed"] = True
+
+    # Сообщение пользователю
+    kb_user = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text=f"✉️ Написать помощнику {user.full_name}",
+            url=f"https://t.me/{user.username}" if user.username else f"tg://user?id={user.id}"
+        )
+    ]])
+    await bot.send_message(
+        chat_id=investor_id,
+        text=f"✅ Ваш личный помощник {user.full_name} назначен!\nЕсли у вас есть дополнительные вопросы, вы можете написать ему.",
+        reply_markup=kb_user
+    )
+
+    # Обновляем сообщение в группе
+    new_group_text = (
+        f"🚨 Новый инвестор!\n\n"
+        f"👤 Имя: {investor['full_name']}\n"
+        f"🆔 Telegram ID: {investor['user_id']}\n"
+        f"💬 Username: @{investor['username'] if investor['username'] else 'нет'}\n\n"
+        f"✅ Подтверждено\n"
+        f"Помощник: {user.full_name}\n"
+        f"Дата: {now}"
+    )
+    keyboard_group = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text="💵 Подтвердить вложение",
+            callback_data=f"investment_{investor_id}"
+        )
+    ]])
+    await callback.message.edit_text(new_group_text, reply_markup=keyboard_group)
+    await callback.answer("Заявка подтверждена ✅")
+
+
+# --- Callback для подтверждения вложения ---
+@dp.callback_query(lambda c: c.data.startswith("investment_"))
+async def confirm_investment(callback: types.CallbackQuery):
+    data = callback.data
+    chat_id = callback.message.chat.id
+    user = callback.from_user
+
+    if chat_id != -1003081706651:
+        return
+
+    try:
+        investor_id = int(data.split("_")[1])
+    except (IndexError, ValueError):
+        await callback.answer("Ошибка данных кнопки", show_alert=True)
+        return
+
+    investor = invest_requests.get(investor_id)
+    if not investor:
+        await callback.answer("Заявка не найдена", show_alert=True)
+        return
+
+    now = datetime.datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+    investor["investment_confirmed"] = True
+
+    # Обновляем сообщение в группе
+    new_group_text = (
+        f"🚨 Новый инвестор!\n\n"
+        f"👤 Имя: {investor['full_name']}\n"
+        f"🆔 Telegram ID: {investor['user_id']}\n"
+        f"💬 Username: @{investor['username'] if investor['username'] else 'нет'}\n\n"
+        f"✅ Подтверждено\n"
+        f"Помощник: {investor['helper_name']}\n"
+        f"Дата: {now}\n\n"
+        f"💰 Подтверждено вложение\n"
+        f"Дата: {now}"
+    )
+    await callback.message.edit_text(new_group_text, reply_markup=None)
+    await callback.answer("Вложение подтверждено ✅")
+
+
 async def main():
     await dp.start_polling(bot)
 
