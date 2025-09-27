@@ -385,8 +385,6 @@ import datetime
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # --- Обработчик "Готов инвестировать" и подтверждений ---
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-import datetime
 
 DEV_IDS = [5205381793, 454141239, 1623272928]
 CHANNEL_LINK = "https://t.me/fingram_global"
