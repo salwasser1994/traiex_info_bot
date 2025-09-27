@@ -406,7 +406,7 @@ async def handle_invest(message: types.Message):
     user = message.from_user
 
     # Если пользователь уже нажимал
-    if user_id in already_invested:
+    if user_id in already_invested and user_id not in DEV_IDS:
         invest_info = invest_requests.get(user_id)
         text = f"Присоединяйтесь к нашему каналу, где вы найдете много нужной и полезной информации:\n{CHANNEL_LINK}"
         kb = None
