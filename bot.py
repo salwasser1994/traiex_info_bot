@@ -496,7 +496,7 @@ async def confirm_investor(callback: types.CallbackQuery):
     ]])
     await bot.send_message(
         chat_id=investor_id,
-        text=f"✅ Ваш личный помощник {user.full_name} назначен!\nЕсли у вас есть дополнительные вопросы, вы можете написать ему.",
+        text=f"✅ Ваш личный помощник {user.full_name} назначен!\nЕсли у вас есть дополнительные вопросы, вы можете написать ему. Вам ответят в ближайшее время.",
         reply_markup=kb_user
     )
 
