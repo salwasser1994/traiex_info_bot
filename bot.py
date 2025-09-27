@@ -384,6 +384,13 @@ from aiogram import F
 import datetime
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
+@dp.callback_query(lambda c: c.data == "back_to_menu")
+async def back_to_main_menu(callback: types.CallbackQuery):
+    await callback.message.edit_reply_markup(reply_markup=None)  # убрать inline-кнопку
+    await callback.message.answer("Главное меню 👇", reply_markup=main_menu())
+    await callback.answer()
+
+
 # --- Обработчик "Готов инвестировать" и подтверждений ---
 
 DEV_IDS = [5205381793, 454141239, 1623272928]
