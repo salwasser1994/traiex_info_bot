@@ -374,6 +374,11 @@ async def handle_message(message: types.Message):
             await message.answer("❌ Неверно. Попробуйте ещё раз.")
         return
 
+    elif text == "💰 Готов инвестировать":
+        await handle_invest(message)
+        return
+
+
     # Если ничего не подошло
     await message.answer("Я вас не понял. Используйте меню 👇", reply_markup=main_menu())
 
