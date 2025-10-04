@@ -118,7 +118,8 @@ def post_calc_menu():
     keyboard = [
         [KeyboardButton(text="💰 Готов инвестировать")],
         [KeyboardButton(text="Не готов")],
-        [KeyboardButton(text="Пройти тест заново")]
+        [KeyboardButton(text="Пройти тест заново")],
+        [KeyboardButton(text="⬅ Назад в меню")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
