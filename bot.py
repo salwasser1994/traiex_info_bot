@@ -1,29 +1,50 @@
-import asyncio
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
+import os
+from telegram import Update
+from telegram.ext import ApplicationBuilder, MessageHandler, CommandHandler, filters, ContextTypes
 
-# Прямое использование токена (только для локального теста, не в GitHub)
-TOKEN = "8473772441:AAHpXfxOxR-OL6e3GSfh4xvgiDdykQhgTus"
+# Получаем токен из переменной окружения
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "👋 Отправь мне любой файл, фото, видео или голосовое сообщение, "
+        "и я пришлю тебе его file_id."
+    )
 
-# Команда /start — приветствие
-@dp.message(Command("start"))
-async def cmd_start(message: types.Message):
-    await message.answer("Привет! Пришли любой файл, и я сразу дам его file_id.")
+async def get_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    file = None
+    msg = update.message
 
-# Обработка любого файла
-@dp.message()
-async def handle_file(message: types.Message):
-    if message.document:
-        await message.answer(f"Вот file_id твоего файла:\n\n{message.document.file_id}")
+    # Определяем тип файла
+    if msg.document:
+        file = msg.document
+    elif msg.photo:
+        file = msg.photo[-1]  # Берём фото в наилучшем качестве
+    elif msg.video:
+        file = msg.video
+    elif msg.audio:
+        file = msg.audio
+    elif msg.voice:
+        file = msg.voice
+    elif msg.video_note:
+        file = msg.video_note
+    elif msg.sticker:
+        file = msg.sticker
     else:
-        await message.answer("Отправь любой файл.")
+        await msg.reply_text("❌ Не удалось определить тип файла.")
+        return
 
-# Запуск бота
-async def main():
-    await dp.start_polling(bot)
+    await msg.reply_text(f"✅ file_id:\n<code>{file.file_id}</code>", parse_mode="HTML")
+
+def main():
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("help", start))
+    app.add_handler(MessageHandler(filters.ALL, get_file_id))
+
+    print("🤖 Бот запущен...")
+    app.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
