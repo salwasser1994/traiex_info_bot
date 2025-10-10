@@ -95,9 +95,9 @@ monthly_options = ["10 000 ₽", "20 000 ₽", "30 000 ₽"]
 def main_menu():
     keyboard = [
         [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
-        [KeyboardButton(text="💬 Поддержка"), KeyboardButton(text="📄 Просмотр договора оферты")],
+        [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
         [KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
-        [KeyboardButton(text="Часто задаваемые вопросы❓")]
+        [KeyboardButton(text="Часто задаваемые вопросы❓"), KeyboardButton(text="Больше информации на какнале")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
@@ -237,6 +237,17 @@ async def handle_message(message: types.Message):
         await message.answer("📘 Инструкция:\n\nВыберите один правильный ответ на каждый вопрос.\n"
                              "Помните, ИИ — это инструмент, а не волшебная палочка.", reply_markup=start_test_menu())
         return
+    elif text == "Больше информации на какнале":
+        CHANNEL_LINK = "https://t.me/fingram_global"
+        await message.answer(
+            f"📢 Больше полезной информации вы найдёте на нашем канале:\n{CHANNEL_LINK}",
+            reply_markup=InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text="Перейти в канал 📲", url=CHANNEL_LINK)]
+                ]
+            )
+        )
+        return
     elif text == "🚀 Начать тест":
         user_progress[user_id] = 0
         await send_test_question(message, 0)
@@ -375,7 +386,7 @@ async def handle_message(message: types.Message):
             await message.answer("❌ Неверно. Попробуйте ещё раз.")
         return
 
-    elif text in ["💰 Готов инвестировать", "💬 Поддержка"]:
+    elif text in ["💰 Готов инвестировать"]:
         await handle_invest(message)
         return
 
@@ -455,7 +466,6 @@ async def handle_invest(message: types.Message):
     # Сообщение пользователю
     text_user = (
         "Поздравляю вас! Вам скоро будет назначен ваш личный помощник.\n\n"
-        f"Присоединяйтесь к нашему каналу, где вы найдете много нужной и полезной информации:\n{CHANNEL_LINK}"
     )
     await message.answer(text_user, reply_markup=None)
 
