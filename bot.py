@@ -97,7 +97,7 @@ def main_menu():
         [KeyboardButton(text="📊 Общая картина"), KeyboardButton(text="📝 Пройти тест")],
         [KeyboardButton(text="💰 Готов инвестировать"), KeyboardButton(text="📄 Просмотр договора оферты")],
         [KeyboardButton(text="✨ Невозможное возможно благодаря рычагам")],
-        [KeyboardButton(text="Часто задаваемые вопросы❓"), KeyboardButton(text="Больше информации на канале")]
+        [KeyboardButton(text="Часто задаваемые вопросы❓"), KeyboardButton(text="Больше ℹ️ на канале")]
     ]
     return ReplyKeyboardMarkup(keyboard=keyboard, resize_keyboard=True)
 
@@ -237,7 +237,7 @@ async def handle_message(message: types.Message):
         await message.answer("📘 Инструкция:\n\nВыберите один правильный ответ на каждый вопрос.\n"
                              "Помните, ИИ — это инструмент, а не волшебная палочка.", reply_markup=start_test_menu())
         return
-    elif text == "Больше информации на канале":
+    elif text == "Больше ℹ️ на канале":
         CHANNEL_LINK = "https://t.me/fingram_global"
         await message.answer(
             f"📢 Больше полезной информации вы найдёте на нашем канале:\n{CHANNEL_LINK}",
