@@ -241,8 +241,6 @@ async def handle_message(message: types.Message):
         CHANNEL_LINK = "https://t.me/fingram_global"
         await message.answer(
             f"📢 Больше полезной информации вы найдёте на нашем канале:\n{CHANNEL_LINK}",
-                ]
-            )
         )
         return
     elif text == "🚀 Начать тест":
